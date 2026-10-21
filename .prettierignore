@@ -1,0 +1,3 @@
+frontend/src/api/generated/schema.d.ts
+frontend/dist
+frontend/node_modules

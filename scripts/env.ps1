@@ -1,0 +1,21 @@
+$ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$env:UV_CACHE_DIR = Join-Path $ProjectRoot '.cache\uv'
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $ProjectRoot '.python'
+$env:UV_PROJECT_ENVIRONMENT = Join-Path $ProjectRoot '.venv'
+$env:UV_TOOL_DIR = Join-Path $ProjectRoot '.tools\uv'
+$env:UV_TOOL_BIN_DIR = Join-Path $ProjectRoot '.tools\bin'
+$env:UV_PYTHON_INSTALL_BIN = '0'
+$env:UV_PYTHON_NO_REGISTRY = '1'
+$env:UV_SYSTEM_CERTS = 'true'
+$env:npm_config_cache = Join-Path $ProjectRoot '.cache\npm'
+$env:PIP_CACHE_DIR = Join-Path $ProjectRoot '.cache\pip'
+$env:HF_HOME = Join-Path $ProjectRoot '.cache\huggingface'
+$taskTempDirectory = Join-Path $ProjectRoot '.cache\tmp'
+New-Item -ItemType Directory -Path $taskTempDirectory -Force | Out-Null
+$env:TEMP = $taskTempDirectory
+$env:TMP = $taskTempDirectory
+$env:PYTHONUTF8 = '1'
+$env:PYTHONIOENCODING = 'utf-8'
+$env:DOCKER_CONFIG = Join-Path $ProjectRoot '.data\docker-cli'
+$env:DOCKER_HOST = 'npipe:////./pipe/dockerDesktopLinuxEngine'
+$env:PATH = (Join-Path $ProjectRoot '.tools\docker\resources\bin') + ';' + $env:PATH

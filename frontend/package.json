@@ -1,0 +1,34 @@
+{
+  "name": "servicehub-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "generate:api": "openapi-typescript ../.cache/openapi.json -o src/api/generated/schema.d.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "jsdom": "latest",
+    "openapi-typescript": "^7.10.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.0",
+    "vite": "8.3.4",
+    "vitest": "latest"
+  }
+}

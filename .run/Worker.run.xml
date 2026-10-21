@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ServiceHub Worker" type="PythonConfigurationType" factoryName="Python">
+    <option name="SDK_HOME" value="$PROJECT_DIR$/.venv/Scripts/python.exe" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="IS_MODULE_SDK" value="false" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <option name="SCRIPT_NAME" value="servicehub.jobs.worker" />
+    <option name="PARAMETERS" value="" />
+    <option name="MODULE_MODE" value="true" />
+    <envs><env name="PYTHONUTF8" value="1" /></envs>
+    <method v="2" />
+  </configuration>
+</component>

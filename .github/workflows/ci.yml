@@ -1,0 +1,37 @@
+name: verify
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.16"
+          enable-cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Local dependency paths
+        run: |
+          echo "UV_CACHE_DIR=$GITHUB_WORKSPACE/.cache/uv" >> "$GITHUB_ENV"
+          echo "UV_PYTHON_INSTALL_DIR=$GITHUB_WORKSPACE/.python" >> "$GITHUB_ENV"
+          echo "npm_config_cache=$GITHUB_WORKSPACE/.cache/npm" >> "$GITHUB_ENV"
+      - run: cp .env.example .env
+      - run: docker compose up -d --wait mysql redis redis-test
+      - run: uv sync --all-groups --frozen
+      - run: npm --prefix frontend ci
+      - run: uv run ruff check backend scripts
+      - run: uv run ruff format --check backend scripts
+      - run: uv run pytest -q
+      - run: uv run python scripts/export_openapi.py
+      - run: npm --prefix frontend run generate:api
+      - run: git diff --exit-code -- frontend/src/api/generated/schema.d.ts
+      - run: npm --prefix frontend run typecheck
+      - run: npm --prefix frontend test -- --run
+      - run: npm --prefix frontend run build
+      - if: always()
+        run: docker compose down

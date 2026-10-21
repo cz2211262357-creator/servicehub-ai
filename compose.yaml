@@ -1,0 +1,84 @@
+name: servicehub
+services:
+  mysql:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--ngram-token-size=2"]
+    environment:
+      MYSQL_DATABASE: servicehub
+      MYSQL_USER: servicehub
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dev-password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-change-me}
+      TZ: UTC
+    ports: ["127.0.0.1:3306:3306"]
+    volumes:
+      - ./.data/mysql:/var/lib/mysql
+      - ./deploy/mysql-init.sql:/docker-entrypoint-initdb.d/01-test.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  redis:
+    image: redis:8.4
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["./.data/redis:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    env_file: .env
+    environment:
+      SERVICEHUB_DATABASE_URL: mysql+asyncmy://servicehub:${MYSQL_PASSWORD:-dev-password}@mysql:3306/servicehub
+      SERVICEHUB_REDIS_URL: redis://redis:6379/0
+      SERVICEHUB_PROJECT_ROOT: /app
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: ["./.data/uploads:/app/.data/uploads"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    command: ["uvicorn", "servicehub.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+  worker:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    env_file: .env
+    environment:
+      SERVICEHUB_DATABASE_URL: mysql+asyncmy://servicehub:${MYSQL_PASSWORD:-dev-password}@mysql:3306/servicehub
+      SERVICEHUB_REDIS_URL: redis://redis:6379/0
+      SERVICEHUB_PROJECT_ROOT: /app
+    volumes: ["./.data/uploads:/app/.data/uploads"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck: {disable: true}
+    restart: unless-stopped
+    command: ["python", "-m", "servicehub.jobs.worker"]
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    ports: ["127.0.0.1:8080:80"]
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+  redis-test:
+    profiles: ["test"]
+    image: redis:8.4
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports: ["127.0.0.1:6380:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 3s
+      timeout: 2s
+      retries: 20

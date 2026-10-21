@@ -1,0 +1,16 @@
+.git
+.venv
+.python
+.cache
+.tools
+.data
+.superpowers
+**/node_modules
+frontend/dist
+**/__pycache__
+.env
+.env.*
+!.env.example
+.idea
+.pytest_cache
+.coverage

@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "base_url": "http://localhost:8080",
+  "tenant_id": 1,
+  "checks": [
+    {
+      "name": "online_rag",
+      "message_id": 12,
+      "citations": 1
+    },
+    {
+      "name": "online_tools_and_explicit_confirmation",
+      "draft_id": 3,
+      "ticket_id": 3
+    },
+    {
+      "name": "human_reply_and_ticket_workflow",
+      "conversation_id": 3,
+      "final_status": "RESOLVED"
+    }
+  ],
+  "elapsed_seconds": 18.297
+}

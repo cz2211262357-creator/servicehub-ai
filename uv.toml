@@ -1,0 +1,8 @@
+cache-dir = "./.cache/uv"
+link-mode = "copy"
+python-preference = "only-managed"
+required-version = ">=0.11.0"
+
+[[index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

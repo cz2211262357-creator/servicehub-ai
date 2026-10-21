@@ -1,0 +1,15 @@
+{
+  "timestamp_utc": "2026-10-21T09:40:52.100922+00:00",
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13",
+    "mysql": "8.4",
+    "redis": "8.4",
+    "api_processes": 2
+  },
+  "scenario": "all",
+  "model_mode": "not_invoked",
+  "status": "passed",
+  "exit_code": 0,
+  "output_tail": "..                                                                       [100%]\n2 passed, 3 deselected in 29.88s\n"
+}
