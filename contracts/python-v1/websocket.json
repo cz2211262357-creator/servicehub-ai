@@ -1,0 +1,169 @@
+{
+  "id": "W01",
+  "path": "/api/v1/conversations/{conversation_id}/live",
+  "query": {
+    "after_seq": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "event_schema": {
+    "properties": {
+      "kind": {
+        "type": "string",
+        "title": "Kind"
+      },
+      "conversation_id": {
+        "type": "integer",
+        "title": "Conversation Id"
+      },
+      "seq": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Seq"
+      },
+      "generation_epoch": {
+        "type": "integer",
+        "title": "Generation Epoch"
+      },
+      "payload": {
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Payload"
+      }
+    },
+    "type": "object",
+    "required": [
+      "kind",
+      "conversation_id",
+      "seq",
+      "generation_epoch",
+      "payload"
+    ],
+    "title": "LiveEvent"
+  },
+  "durable_kinds": [
+    "conversation.created",
+    "conversation.updated",
+    "message.created"
+  ],
+  "transient_kinds": [
+    "ai.delta",
+    "heartbeat"
+  ],
+  "close_codes": {
+    "4401": "unauthenticated or revoked",
+    "4403": "origin or object permission denied",
+    "1013": "dependency, slow consumer or send timeout"
+  },
+  "buffer_size": 128,
+  "send_timeout_seconds": 5,
+  "replay": "Persistent seq is authoritative; Redis notification loss triggers DB catch-up; transient events are not persisted.",
+  "examples_kind": "synthetic examples, not captured user traffic",
+  "examples": [
+    {
+      "kind": "conversation.created",
+      "conversation_id": 101,
+      "seq": 1,
+      "generation_epoch": 1,
+      "payload": {
+        "conversation": {
+          "id": 101,
+          "customer_id": 201,
+          "assigned_agent_id": null,
+          "title": "合成契约样本",
+          "status": "AI_ACTIVE",
+          "version": 2,
+          "generation_epoch": 1,
+          "last_event_seq": 1,
+          "created_at": "2026-10-22T00:00:00Z",
+          "updated_at": "2026-10-22T00:00:01.123000Z",
+          "ai_reply": null
+        }
+      }
+    },
+    {
+      "kind": "conversation.updated",
+      "conversation_id": 101,
+      "seq": 2,
+      "generation_epoch": 1,
+      "payload": {
+        "conversation": {
+          "id": 101,
+          "customer_id": 201,
+          "assigned_agent_id": null,
+          "title": "合成契约样本",
+          "status": "AI_ACTIVE",
+          "version": 2,
+          "generation_epoch": 1,
+          "last_event_seq": 2,
+          "created_at": "2026-10-22T00:00:00Z",
+          "updated_at": "2026-10-22T00:00:01.123000Z",
+          "ai_reply": null
+        }
+      }
+    },
+    {
+      "kind": "message.created",
+      "conversation_id": 101,
+      "seq": 3,
+      "generation_epoch": 1,
+      "payload": {
+        "conversation": {
+          "id": 101,
+          "customer_id": 201,
+          "assigned_agent_id": null,
+          "title": "合成契约样本",
+          "status": "AI_ACTIVE",
+          "version": 2,
+          "generation_epoch": 1,
+          "last_event_seq": 3,
+          "created_at": "2026-10-22T00:00:00Z",
+          "updated_at": "2026-10-22T00:00:01.123000Z",
+          "ai_reply": null
+        },
+        "message": {
+          "id": 301,
+          "conversation_id": 101,
+          "sender_id": 201,
+          "author_role": "customer",
+          "client_message_id": "synthetic-message-1",
+          "ai_run_id": null,
+          "body": "查询售后政策",
+          "citations": [],
+          "draft_id": null,
+          "created_at": "2026-10-22T00:00:01.123000Z"
+        }
+      }
+    },
+    {
+      "kind": "ai.delta",
+      "conversation_id": 101,
+      "seq": null,
+      "generation_epoch": 1,
+      "payload": {
+        "text": "正在核实",
+        "run_id": 401
+      }
+    },
+    {
+      "kind": "heartbeat",
+      "conversation_id": 101,
+      "seq": null,
+      "generation_epoch": 0,
+      "payload": {}
+    }
+  ],
+  "java_additions": [
+    "topic_id",
+    "run_id",
+    "execution_version"
+  ]
+}

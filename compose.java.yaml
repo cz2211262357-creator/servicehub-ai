@@ -1,0 +1,102 @@
+name: servicehub-java
+
+x-java-environment: &java-environment
+  SERVICEHUB_WORKSPACE_ROOT: /workspace
+  SERVICEHUB_JAVA_JDBC_URL: jdbc:mysql://mysql:3306/servicehub_java?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&preserveInstants=true
+  SERVICEHUB_JAVA_DB_USER: ${SERVICEHUB_JAVA_DB_USER:-servicehub_java}
+  SERVICEHUB_JAVA_DB_PASSWORD: ${SERVICEHUB_JAVA_DB_PASSWORD:?Run bootstrap-java.ps1}
+  SERVICEHUB_JAVA_REDIS_HOST: redis
+  SERVICEHUB_JAVA_REDIS_PORT: "6379"
+  SERVICEHUB_JAVA_REDIS_PASSWORD: ${SERVICEHUB_JAVA_REDIS_PASSWORD:?Run bootstrap-java.ps1}
+  SERVICEHUB_JAVA_RABBIT_HOST: rabbitmq
+  SERVICEHUB_JAVA_RABBIT_PORT: "5672"
+  SERVICEHUB_JAVA_RABBIT_USER: ${SERVICEHUB_JAVA_RABBIT_USER:-servicehub_java}
+  SERVICEHUB_JAVA_RABBIT_PASSWORD: ${SERVICEHUB_JAVA_RABBIT_PASSWORD:?Run bootstrap-java.ps1}
+  SERVICEHUB_MODEL_BASE_URL: ${SERVICEHUB_MODEL_BASE_URL:-}
+  SERVICEHUB_MODEL_NAME: ${SERVICEHUB_MODEL_NAME:-qwen-plus}
+  SERVICEHUB_MODEL_API_KEY: ${SERVICEHUB_MODEL_API_KEY:-}
+  SERVICEHUB_EMBEDDING_BASE_URL: ${SERVICEHUB_EMBEDDING_BASE_URL:-}
+  SERVICEHUB_EMBEDDING_MODEL: ${SERVICEHUB_EMBEDDING_MODEL:-text-embedding-v4}
+  SERVICEHUB_EMBEDDING_API_KEY: ${SERVICEHUB_EMBEDDING_API_KEY:-}
+  JAVA_TOOL_OPTIONS: -Duser.timezone=UTC -Dfile.encoding=UTF-8
+
+services:
+  mysql:
+    image: mysql:8.4@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
+    environment:
+      MYSQL_DATABASE: servicehub_java
+      MYSQL_USER: ${SERVICEHUB_JAVA_DB_USER:-servicehub_java}
+      MYSQL_PASSWORD: ${SERVICEHUB_JAVA_DB_PASSWORD:?Run bootstrap-java.ps1}
+      MYSQL_ROOT_PASSWORD: ${SERVICEHUB_JAVA_MYSQL_ROOT_PASSWORD:?Run bootstrap-java.ps1}
+    command: ["--default-time-zone=+00:00", "--ngram_token_size=2", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports: ["127.0.0.1:3307:3306"]
+    volumes:
+      - ${SERVICEHUB_WORKSPACE_ROOT:?Set workspace root}/.data/java/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_PASSWORD}\" mysql --protocol=tcp -h127.0.0.1 -u\"$${MYSQL_USER}\" -D\"$${MYSQL_DATABASE}\" -e 'SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 4s
+      retries: 30
+  redis:
+    image: redis:8.4@sha256:43afe4a9a43080e64dfa29699eef903fc9d54991fe8b03d57237c05bed2a396c
+    environment:
+      SERVICEHUB_JAVA_REDIS_PASSWORD: ${SERVICEHUB_JAVA_REDIS_PASSWORD:?Run bootstrap-java.ps1}
+    command: ["sh", "-c", "exec /usr/local/bin/docker-entrypoint.sh redis-server --appendonly yes --requirepass \"$${SERVICEHUB_JAVA_REDIS_PASSWORD}\""]
+    ports: ["127.0.0.1:6381:6379"]
+    volumes:
+      - ${SERVICEHUB_WORKSPACE_ROOT:?Set workspace root}/.data/java/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${SERVICEHUB_JAVA_REDIS_PASSWORD}\" redis-cli --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq:4.3.6-management@sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58
+    hostname: servicehub-java-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${SERVICEHUB_JAVA_RABBIT_USER:-servicehub_java}
+      RABBITMQ_DEFAULT_PASS: ${SERVICEHUB_JAVA_RABBIT_PASSWORD:?Run bootstrap-java.ps1}
+      RABBITMQ_ERLANG_COOKIE: ${SERVICEHUB_JAVA_RABBIT_COOKIE:?Run bootstrap-java.ps1}
+      RABBITMQ_NODENAME: rabbit@servicehub-java-rabbitmq
+    ports: ["127.0.0.1:5673:5672", "127.0.0.1:15673:15672"]
+    volumes:
+      - ${SERVICEHUB_WORKSPACE_ROOT:?Set workspace root}/.data/java/rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  api:
+    profiles: [api]
+    image: servicehub-java-api:local
+    build: {context: ., dockerfile: backend-java/Dockerfile}
+    environment:
+      <<: *java-environment
+      SPRING_PROFILES_ACTIVE: api
+      SERVER_ADDRESS: 0.0.0.0
+      SERVICEHUB_JAVA_PORT: "8001"
+    ports: ["127.0.0.1:8001:8001"]
+    volumes:
+      - ${SERVICEHUB_JAVA_UPLOAD_DIR:-${SERVICEHUB_WORKSPACE_ROOT:?Set workspace root}/.data/java/uploads}:/workspace/.data/java/uploads
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+  worker:
+    profiles: [worker]
+    image: servicehub-java-api:local
+    environment:
+      <<: *java-environment
+      SPRING_PROFILES_ACTIVE: worker
+    volumes:
+      - ${SERVICEHUB_JAVA_UPLOAD_DIR:-${SERVICEHUB_WORKSPACE_ROOT:?Set workspace root}/.data/java/uploads}:/workspace/.data/java/uploads
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+  web:
+    profiles: [web]
+    image: servicehub-java-web:local
+    build: {context: ., dockerfile: deploy/java-web.Dockerfile}
+    ports: ["127.0.0.1:8081:80"]
+    depends_on: [api]

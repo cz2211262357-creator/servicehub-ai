@@ -1,150 +1,122 @@
 # ServiceHub AI
 
-[![CI](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/ci.yml)
+[![Java platform verification](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/java-ci.yml/badge.svg)](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/java-ci.yml)
 
-**电商售后客服与知识库问答平台**。采用 React / TypeScript + FastAPI + MySQL + Redis，接入百炼在线模型，串联知识问答、订单核查、客户确认、人工接待和售后工单。
+**基于 Java / Spring Boot 与 React 的电商售后客服与知识问答平台。** 接入百炼真实对话与 Embedding，将知识检索、订单核查、售后草稿、客户确认、人工接待和运营审计连接为完整业务流程。
 
-项目重点是将 Agent 接入有权限、状态和并发约束的业务系统：回答可引用原始知识版本，工具只能查询本人订单或准备草稿，正式售后申请需要客户确认，人工接管后旧 AI 执行不能提交回答。
+项目采用模块化单体 API 加独立 Worker。重点实现多租户授权、消息幂等、事务 Outbox、RabbitMQ 投递、数据库租约围栏、话题切换和旧回答拦截。订单使用可替换的合成数据，模型请求、向量索引、队列和数据库写入均使用真实链路；没有接入外部电商、物流或支付退款系统。
+
+原 FastAPI 版本继续保留，历史启动与实测说明见 [Python 版本说明](docs/operations/Python版本使用与验收.md)。当前主线交付以 Java 后端为准。
 
 ## 业务能力
 
-| 角色 | 可用功能 |
+| 角色 | 功能 |
 |---|---|
-| 客户 | 创建咨询、流式问答、来源引用、本人订单、售后草稿确认、工单进度、转人工 |
-| 客服 | 服务队列、竞争接单、人工回复、客户订单上下文、工单审核及时间线 |
-| 管理员 | 私有知识上传及版本管理、文档停用、成员权限、失败任务恢复、审计与真实运营统计 |
-
-商家、订单和政策使用可替换的虚构业务资料；模型调用、向量索引、数据库写入和后台执行均为真实链路。当前不对接外部电商、支付退款或物流系统。
-
-![客户会话中的在线问答与人工回复](docs/verification/ui-customer.png)
+| 客户 | 会话与知识问答、引用来源、本人订单、售后草稿确认、工单状态、停止回答、话题切换与转人工 |
+| 客服 | 服务队列、竞争接单、客户上下文、人工回复与工单审核 |
+| 管理员 | 私有知识文件和版本、成员授权、任务恢复、审计、依赖健康与真实运营统计 |
 
 ## 技术栈
 
-| 层次 | 实现 |
+| 部分 | 实现 |
 |---|---|
 | 前端 | React、TypeScript、Vite、TanStack Query、WebSocket |
-| API | FastAPI、Pydantic、SQLAlchemy asyncio、Alembic |
-| 数据与检索 | MySQL 8.4、Redis 8.4 Search / HNSW、ngram 全文、RRF |
-| Agent | qwen-plus、Function Calling、text-embedding-v4 / 1024维、参数校验与工具白名单 |
-| 异步与并发 | asyncio、独立 Worker、Redis Streams、事务 Outbox、租约及执行版本、Lua 限流 |
-| 工程交付 | uv、Docker Compose、Nginx、pytest、Vitest、GitHub Actions |
+| Java 运行时与 API | JDK21、Spring Boot4.1.1、Spring MVC、Spring Security |
+| 数据访问 | MyBatis-Plus3.5.17、显式 SQL、Flyway、MySQL8.4 |
+| 检索与缓存 | Redis8.4 Search/HNSW、MySQL ngram 全文、RRF、Lua 限流和资源准入 |
+| 消息与执行 | RabbitMQ4.3.6、Spring AMQP、事务 Outbox、独立 Worker、数据库租约与执行版本 |
+| 模型与工具 | Spring AI2.0.1、兼容 SDK、qwen-plus、text-embedding-v4/1024维、受控 Tool Calling |
+| 验证与交付 | Maven Wrapper、JUnit、Testcontainers、Vitest、Docker Compose、GitHub Actions |
+
+ServiceHub 的模型回环由 Java 实现，未使用 LangChain 或 LangGraph。它包含受业务边界约束的工具执行，不能将尚未交付的独立 Python/LangGraph 问数项目算作本项目能力。
 
 ## 架构
 
 ~~~mermaid
 flowchart LR
-    UI[React / TypeScript] --> WEB[Nginx]
-    WEB --> API[FastAPI 多进程]
+    UI[React / TypeScript] --> N[Nginx]
+    N --> API[Spring Boot API 多实例]
     API --> DB[(MySQL 业务权威源)]
-    API --> REDIS[(Redis)]
-    WORKER[独立 Worker / Outbox] --> DB
-    WORKER --> REDIS
-    WORKER --> LLM[qwen-plus]
-    WORKER --> EMB[text-embedding-v4]
-    REDIS --> API
+    API --> R[(Redis)]
+    OB[独立 Outbox 发布循环] --> DB
+    OB --> Q[RabbitMQ]
+    Q --> W[Java Worker]
+    W --> DB
+    W --> R
+    W --> L[qwen-plus]
+    W --> E[text-embedding-v4]
+    R --> API
 ~~~
 
-### 知识与 Agent
+源码在 backend-java/，前端继续使用 frontend/；历史 Python 代码位于 backend/。业务模块包含 auth、conversations、orders、aftersales、knowledge、jobs、ai、realtime、operations，分别管理权限、领域状态与运行边界。
 
-- 管理员上传 TXT、Markdown 或文本 PDF，解析后保留文档版本、页码和原始文件；新版本索引完成后才切换有效版本。
-- MySQL ngram 全文与 Redis HNSW 双路召回，使用 RRF 融合；候选排名前筛选当前有效版本，提交回答前再次授权复核。
-- 引用固定到回答所依据的版本；客户读取历史版本还需存在本人会话中的引用，避免旧回答下载到新政策。
-- 只注册 search_policy、lookup_order、prepare_after_sale 三类工具，按当前客户身份二次授权；客户明确确认后才创建工单。
-- 设置输入、输出、工具步数、超时和全局模型并发预算，记录实际 Token usage 与工具执行结果；供应商没有返回 usage 时保留为空。
+## 核心实现
 
-### 并发与故障恢复
+**权限与最终提交。** 使用独立的 HttpOnly Cookie 会话、CSRF 和 Origin 校验；用户身份由服务端注入，查询同时约束租户及对象归属。工具调用、检索输出及业务提交重新检查当前权限。撤权与业务提交通过同一授权行的锁顺序明确先后，恢复任务也不复用旧的授权结论。
 
-| 场景 | 机制 |
-|---|---|
-| 重发消息 / 重复确认 | 唯一幂等键、请求内容校验、短事务及业务唯一约束 |
-| 多客服抢单 | 会话状态、负责人和版本条件更新，竞争失败返回 409 |
-| 人工接管 / AI 迟到 | generation_epoch、当前状态、数据库租约与 execution_version 提交围栏 |
-| Worker 崩溃 | 到期租约回收、Streams 重新领取、MySQL Outbox 补投和幂等执行 |
-| 慢模型任务 | 投递与回收循环独立于执行循环，使用有界任务集合补充空闲槽 |
-| 断线或跨 API 实例 | MySQL 单调事件序号、Redis 通知、游标补放与前端去重 |
-| 失败后刷新页面 | 权威任务快照区分排队、执行、自动重试和最终失败 |
+**重复请求与话题切换。** 相同 client_message_id 返回原消息、run/job 和接收版本；内容冲突返回409。首次消息与会话版本、任务、事件、Outbox 在同一事务中提交。前台 epoch 单调递增，A→B→A 也不能接纳旧 A 分片；停止、人工接管、话题切换后的迟到回答均需通过服务器提交校验。
 
-消息、事件、AI 运行、任务与 Outbox 在同一事务创建。投递语义为至少一次；业务幂等与执行围栏用于避免重复落库。默认客户消息限制为每分钟 30 次，模型全局并发槽为 4；参数可按目标部署环境配置。
+**消息与旧写保护。** Outbox 发布在收到 RabbitMQ confirm 且未被退回后才确认。消费采用至少一次语义，业务结果依赖幂等和数据库条件提交。每次领取任务推进 execution_version；过期 Worker 即使恢复，也不能覆盖替补结果。模型请求可能在故障中重复，不承诺恰好调用一次。
 
-## 快速启动
+**前后台资源隔离。** 执行和模型准入分别限制总并发4、后台最多3，为交互保留名额。前后台分别消费且 prefetch=1，投递、续租、恢复和清理使用独立循环。前台排队最多60秒、执行硬截止120秒，恢复不会重置截止时间；自动执行最多3次，前两次失败分别退避5/30秒。
 
-需要 Git、Docker Desktop / Docker Compose，以及可用的百炼 Key。首次部署：
+**混合检索与来源。** 私有 TXT、Markdown 和文本 PDF 保留原文件、版本及页码。全文与向量双路召回后使用 RRF 融合；召回前过滤租户和有效索引代，回答提交前复核引用。新索引成功后才原子切换有效版本，旧来源不能绕过当前文档授权。
 
-~~~bash
-git clone https://github.com/cz2211262357-creator/servicehub-ai.git
-cd servicehub-ai
-cp .env.example .env
-~~~
+**受控模型工具。** 仅开放 search_policy、lookup_order、prepare_after_sale；参数、输入输出、调用次数、截止时间和权限均由服务端校验。模型可以准备售后草稿，正式工单需要客户确认。Token usage 缺失时保留未知，与真实0区分。
 
-Windows PowerShell 可用 Copy-Item .env.example .env。编辑本地 .env：
+**实时与恢复。** 数据库事件序号用于补放，Redis 只负责通知和临时流事件。WebSocket 会定期重新授权，客户端与服务端同时过滤过期执行，慢连接有有界缓冲和发送超时。
 
-~~~dotenv
-SERVICEHUB_MODEL_MODE=online
-SERVICEHUB_MODEL_NAME=qwen-plus
-SERVICEHUB_MODEL_API_KEY=填入自己的百炼Key
-SERVICEHUB_EMBEDDING_MODEL=text-embedding-v4
-SERVICEHUB_EMBEDDING_API_KEY=填入自己的百炼Key
-SERVICEHUB_EMBEDDING_DIMENSIONS=1024
-~~~
+## 启动
 
-当前默认使用北京地域兼容接口，Key、地域与模型权限需要匹配。两个 Key 字段可使用同一具备相应权限的 Key。
-
-~~~bash
-docker compose --profile app build
-docker compose up -d --wait mysql redis
-docker compose --profile app run --rm --no-deps api alembic -c backend/alembic.ini upgrade head
-docker compose --profile app run --rm --no-deps api python scripts/seed.py
-docker compose --profile app up -d --wait api worker web
-~~~
-
-- 网站：http://localhost:8080
-- API 文档：http://127.0.0.1:8000/api/docs
-- seed 输出两个企业的实际编号。各企业开发账号包括 admin@example.com、agent@example.com、agent2@example.com、customer@example.com、customer2@example.com。
-- 默认开发密码为 ServiceHub-2026!；首次初始化前可设置 SERVICEHUB_SEED_PASSWORD。重复初始化不会重置已有密码，种子仅允许 development。
-- 若重新创建了 API 而保留旧 Web 容器，可运行 docker compose --profile app restart web 更新 Nginx 的容器地址解析。
-
-本机开发与 PyCharm 配置见 [开发与启动](docs/operations/PyCharm与启动.md)。停止容器可用 docker compose --profile app stop，持久化数据保存在项目 .data/。
-
-## 验证与实测
-
-2026-10-21 本地验证快照：
-
-- 后端 **94 passed**；前端 **18 passed**；Ruff、TypeScript、生成接口类型和生产构建通过。
-- 双 API 实际验证：20 次重复消息仅一条消息 / 一个任务；20 次重复确认仅一张工单；20 名不同客服竞争接单，仅一人成功。
-- 实际终止 Worker 并等待自然租约到期后恢复；隔离测试 Redis 停启后核对 MySQL 数据及任务补投，两个故障实验通过。
-- 真实 text-embedding-v4 入库与授权召回通过；完整 Docker 在线业务验收 **18.297 秒**，覆盖 RAG、订单工具、客户确认、人工回复和工单完成。
-- 8 个虚拟客户的消息保存闭环测量：430 请求 / 5.095 秒，P95 102.06 ms；跨进程实时送达场景为 4 个虚拟客户、132 请求 / 5.173 秒，P95 187.49 ms；两组错误率均为 0。
-
-上述接口测量使用双 API 进程、真实 MySQL / Redis，未混入模型调用，也未寻找机器承载上限。它们不能用作生产最大 QPS 或大模型吞吐指标。完整环境、口径、失败回合和原始报告见 [实际验证记录](docs/verification/2026-10-21-validation.md)。
-
-在 Windows 开发环境中：
+需要 Git、可用 Docker 环境、uv，以及具有对应模型权限的百炼 Key。首次克隆：
 
 ~~~powershell
-. .\scripts\env.ps1
-docker compose up -d --wait mysql redis redis-test
-uv sync --all-groups --frozen
-npm --prefix frontend ci
-.\scripts\verify.ps1
-.\scripts\verify.ps1 -Faults
-.\scripts\verify.ps1 -Online
-uv run python scripts/smoke.py --tenant-id 1
+git clone https://github.com/cz2211262357-creator/servicehub-ai.git
+Set-Location servicehub-ai
+$R = (Get-Location).Path
+$W = $R
+.\scripts\bootstrap-java.ps1 -WorkspaceRoot $R
+. .\scripts\java-env.ps1 -WorkspaceRoot $R
 ~~~
 
-普通测试使用 servicehub_test 与独立 Redis 6380/db0，不调用付费模型。Online 和 smoke 需配置真实 Key，会产生供应商调用费用。GitHub Actions 的当前结果以本仓库 Actions 页面为准；上述数字是已归档的本地实测。
+在忽略的本地配置中填写真实模型接口与 Key，再重新加载 java-env.ps1。初始化工具不会覆盖已有凭证。构建及启动：
 
-## 目录
-
-~~~text
-backend/src/servicehub/    认证、会话、订单、售后、知识、Agent、任务和运营模块
-backend/tests/            单元、真实依赖集成、并发、故障及显式在线验证
-frontend/src/             客户门户、客服与管理界面、生成接口类型
-scripts/                  启动、初始化、完整验收、负载与故障实验
-deploy/                   API / Web 镜像、Nginx、MySQL 初始化
-docs/                     架构、运维、业务操作和验证报告
+~~~powershell
+docker compose --env-file "$R/.env.java" -f "$W/compose.java.yaml" --profile api --profile worker --profile web build
+docker compose --env-file "$R/.env.java" -f "$W/compose.java.yaml" up -d --wait mysql redis rabbitmq
+docker compose --env-file "$R/.env.java" -f "$W/compose.java.yaml" --profile api --profile worker --profile web up -d api worker web
 ~~~
 
-## 范围与凭证
+Web 为 http://localhost:8081，API 为 http://127.0.0.1:8001。所有 Compose 端口只绑定127.0.0.1。API 自动执行 Flyway；首次管理员需通过维护工具设置自己的密码，见 [启动与故障恢复](docs/operations/Java启动与故障恢复.md)。
 
-.env、上传文件、数据库、缓存和开发工具不进入 Git。密钥只由后端及 Worker 从环境读取。单文件最多 10 MiB，目前支持文本 PDF，不包含扫描 PDF OCR。
+所有直接管理的工具、缓存、构建输出与持久数据位于 R 内，私有数据不参与 Git 或 Docker 构建上下文。Docker Desktop 引擎自身的镜像、容器层和全局缓存单独说明，不宣称被项目目录完全隔离。
 
-外网部署需要配置 HTTPS、Secure Cookie、独立凭证与备份保留策略。生产容量、长期稳定性与跨主机还原尚未验证；领域回答质量需使用目标商家资料评测。目前没有一键全量索引重建命令，可保留 Redis AOF 或逐文档上传新版本重建。供应商已接受的请求在本地取消后仍可能消耗 Token。
+## 验证与测量
+
+最终计数和版本以 [Java 验收记录](docs/verification/java-acceptance.md) 及 [交付证据](docs/verification/java-delivery-evidence.md) 为准。普通回归使用真实临时 MySQL/Redis/RabbitMQ，供应商异常通过受控网络服务注入；真实百炼验收为显式独立入口。
+
+- 原39个HTTP接口与旧 Python 运行时逐项对照，另验证3个话题/停止扩展接口及 WebSocket；核对角色、Cookie、CSRF、权限、错误、时间与金额格式。
+- 实际双 API 进程覆盖重复消息与事务回滚、双页面 CAS、A→B→A、重复售后确认和20名不同客服抢单。
+- 实际 Worker 进程覆盖取消后重启、暂停后租约替换、RabbitMQ confirm 丢失、数据库短断、有限重试和前后台资源隔离。
+- 2026-10-25 真实百炼链路已验证 PDF 向量化、中文带引用回答、订单工具、售后草稿、客户确认及人工回复；15个开发路由样例中，仅3个模糊样例调用分类模型一次。
+- 本机双 API、小数据集的普通读接口，在并发1/10/20下各100次请求，错误数均0，P95为18.63/35.03/25.05ms。它不表示生产容量，也不包括大模型时延。
+
+~~~powershell
+. .\scripts\java-env.ps1 -WorkspaceRoot $R
+& .\backend-java\mvnw.cmd -f backend-java/pom.xml verify
+& .\scripts\java-system-tests.ps1 -WorkspaceRoot $R -ReportPath "$R/.cache/java-verification/system-delivery.json"
+& .\scripts\java-online-check.ps1 -WorkspaceRoot $R -ReportPath "$R/.cache/java-verification/online-delivery.json"
+& .\scripts\java-benchmark.ps1 -WorkspaceRoot $R -ReportPath "$R/.cache/java-verification/benchmark-delivery.json"
+~~~
+
+前端使用 npm --prefix frontend ci，再运行 typecheck、test -- --run 和 build。CI 同时核对生成接口类型漂移。真实模型验收需要本地私有配置，不将真实 Key 放进公开 CI 或构建参数。
+
+## 阅读与边界
+
+- [关键源码与面试讲解](docs/operations/Java关键源码与面试讲解.md)
+- [接口契约矩阵](docs/verification/java-contract-matrix.md)
+- [并发与故障验收矩阵](docs/verification/java-concurrency-acceptance.md)
+- [话题与执行一致性规范](docs/superpowers/specs/2026-10-22-execution-consistency-design.md)
+- [真实模型与验收记录](docs/verification/java-acceptance.md)
+
+本项目不包含支付退款写入、OCR、微服务拆分或跨地域容灾。公网部署还应结合目标环境配置 HTTPS、独立凭证、备份及容量验证。

@@ -1,0 +1,110 @@
+{
+  "purpose": "开发验收样本；记录实际决策与偏差，不声称通用意图准确率。",
+  "cases": [
+    {
+      "id": "R01",
+      "text": "那运费呢？",
+      "expected": "CONTINUE",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R02",
+      "text": "查询订单 ORD-ONLINE-001 的状态",
+      "expected": "CONTINUE",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R03",
+      "text": "还需要哪些材料？",
+      "expected": "CONTINUE",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R04",
+      "text": "换个话题，介绍保修政策",
+      "expected": "NEW_TOPIC",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R05",
+      "text": "新话题：商品维修",
+      "expected": "NEW_TOPIC",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R06",
+      "text": "另开话题，咨询退货条件",
+      "expected": "NEW_TOPIC",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R07",
+      "text": "改查订单 ORD-ONLINE-002",
+      "expected": "REVISE",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R08",
+      "text": "换订单，订单号 ORD-ONLINE-003",
+      "expected": "REVISE",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R09",
+      "text": "帮我查另一个订单，但我还没提供编号",
+      "expected": "REVISE",
+      "requires_clarification": true,
+      "classification_expected": false
+    },
+    {
+      "id": "R10",
+      "text": "回到话题 {resume_topic_id}",
+      "expected": "RESUME",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R11",
+      "text": "回到话题   {resume_topic_id}，接着说",
+      "expected": "RESUME",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R12",
+      "text": "回到话题{resume_topic_id}，继续维修咨询",
+      "expected": "RESUME",
+      "requires_clarification": false,
+      "classification_expected": false
+    },
+    {
+      "id": "R13",
+      "text": "接着那个做，上一个还是现在这个？我还没有决定",
+      "expected": "AMBIGUOUS",
+      "requires_clarification": true,
+      "classification_expected": true
+    },
+    {
+      "id": "R14",
+      "text": "刚才那个和现在这个我分不清，先别替我选择",
+      "expected": "AMBIGUOUS",
+      "requires_clarification": true,
+      "classification_expected": true
+    },
+    {
+      "id": "R15",
+      "text": "接着那个，不过我不知道指哪条，请先让我确认",
+      "expected": "AMBIGUOUS",
+      "requires_clarification": true,
+      "classification_expected": true
+    }
+  ]
+}

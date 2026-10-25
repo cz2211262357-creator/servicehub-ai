@@ -1,0 +1,26 @@
+[
+  {
+    "id": "N01",
+    "method": "POST",
+    "path": "/api/v1/conversations/{conversation_id}/interrupt",
+    "input": {
+      "expected_generation_epoch": "nonnegative integer"
+    }
+  },
+  {
+    "id": "N02",
+    "method": "GET",
+    "path": "/api/v1/conversations/{conversation_id}/topics"
+  },
+  {
+    "id": "N03",
+    "method": "POST",
+    "path": "/api/v1/conversations/{conversation_id}/topics/switch",
+    "input": {
+      "mode": "NEW or RESUME",
+      "topic_id": "optional positive integer",
+      "expected_generation_epoch": "nonnegative integer",
+      "pending_message_id": "optional positive integer"
+    }
+  }
+]

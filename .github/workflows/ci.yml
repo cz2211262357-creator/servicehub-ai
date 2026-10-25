@@ -27,11 +27,6 @@ jobs:
       - run: uv run ruff check backend scripts
       - run: uv run ruff format --check backend scripts
       - run: uv run pytest -q
-      - run: uv run python scripts/export_openapi.py
-      - run: npm --prefix frontend run generate:api
-      - run: git diff --exit-code -- frontend/src/api/generated/schema.d.ts
-      - run: npm --prefix frontend run typecheck
-      - run: npm --prefix frontend test -- --run
-      - run: npm --prefix frontend run build
+      # React now follows Java's additive contract and is verified in java-ci.yml.
       - if: always()
         run: docker compose down

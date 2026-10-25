@@ -9,7 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, post } from "../../api/client";
+import { ApiError, api, post } from "../../api/client";
 import type { Schemas } from "../../api/client";
 import {
   createOutgoingMessage,
@@ -26,6 +26,7 @@ import {
   Modal,
   localTime,
 } from "../../components/Feedback";
+import { TopicControls } from "./TopicControls";
 import { AfterSaleForm } from "./AfterSaleForm";
 
 export function ChatPanel({
@@ -69,9 +70,14 @@ export function ChatPanel({
     try {
       const saved = await sendCustomerMessage(id, message);
       live.addSaved(saved);
+      void live.refresh().catch(setActionError);
       setPending((old) => old.filter((item) => item.id !== message.id));
       void cache.invalidateQueries({ queryKey: ["conversations"] });
     } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        await live.refresh();
+        setActionError(new Error("会话已更新，请确认当前话题后重试。"));
+      }
       setPending((old) =>
         old.map((item) =>
           item.id === message.id ? { ...item, failed: true, error } : item,
@@ -88,7 +94,11 @@ export function ChatPanel({
   async function action(name: string) {
     setActionError(null);
     try {
-      await post("/conversations/" + id + "/" + name);
+      live.syncConversation(
+        await post<Schemas["ConversationDTO"]>(
+          "/conversations/" + id + "/" + name,
+        ),
+      );
       void cache.invalidateQueries({ queryKey: ["conversations"] });
     } catch (e) {
       setActionError(e);
@@ -110,6 +120,16 @@ export function ChatPanel({
       </div>
     );
   const conversation = live.conversation;
+  const pendingChoice =
+    conversation.ai_reply?.state === "waiting_input"
+      ? [...live.messages]
+          .reverse()
+          .find(
+            (m) =>
+              m.author_role === "customer" &&
+              m.accepted_generation_epoch === conversation.generation_epoch,
+          )?.id
+      : undefined;
   const canReply =
     conversation.status !== "CLOSED" &&
     (!staff ||
@@ -158,6 +178,15 @@ export function ChatPanel({
             )}
         </div>
       </header>
+      {!staff && conversation.active_topic_id !== undefined && (
+        <TopicControls
+          key={id}
+          conversation={conversation}
+          pendingMessageId={pendingChoice}
+          onChange={live.syncConversation}
+          refresh={live.refresh}
+        />
+      )}
       <div className="chat-connection">
         <i
           className={
@@ -233,6 +262,9 @@ export function ChatPanel({
                           ? "客户"
                           : "人工客服"}
                   </strong>
+                  {message.topic_id != null && (
+                    <span>话题 #{message.topic_id}</span>
+                  )}
                   <time>{localTime(message.created_at)}</time>
                 </div>
                 <div className="bubble">{message.body}</div>
@@ -266,7 +298,12 @@ export function ChatPanel({
                     <div className="draft-card">
                       <ShieldCheck size={18} />
                       <div>
-                        <strong>售后申请已准备</strong>
+                        <strong>
+                          {message.topic_id != null &&
+                          message.topic_id !== conversation.active_topic_id
+                            ? "历史话题申请"
+                            : "售后申请已准备"}
+                        </strong>
                         <small>核对并确认后才会提交</small>
                       </div>
                       <button
@@ -288,6 +325,10 @@ export function ChatPanel({
           );
         })}
         {conversation.status === "AI_ACTIVE" &&
+          (conversation.active_topic_id === undefined ||
+            ["queued", "running", "retrying"].includes(
+              conversation.ai_reply?.state ?? "",
+            )) &&
           !live.error &&
           !live.partialText &&
           live.messages.at(-1)?.author_role === "customer" && (

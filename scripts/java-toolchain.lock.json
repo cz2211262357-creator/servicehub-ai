@@ -1,0 +1,26 @@
+{
+  "jdk": {
+    "version": "21.0.12.1+1",
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip",
+    "sha256": "f9d6e191ab098c0d416e7d588a24420a8621cd2f4720dab2459b8b7b2d2d8b4e",
+    "archive": "OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip",
+    "extractDirectory": "jdk21",
+    "home": "jdk21/jdk-21.0.12.1+1"
+  },
+  "maven": {
+    "version": "3.9.11",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip",
+    "sha256": "0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb",
+    "sha512": "03e2d65d4483a3396980629f260e25cac0d8b6f7f2791e4dc20bc83f9514db8d0f05b0479e699a5f34679250c49c8e52e961262ded468a20de0be254d8207076",
+    "archive": "apache-maven-3.9.11-bin.zip",
+    "extractDirectory": "maven-bootstrap",
+    "home": "maven-bootstrap/apache-maven-3.9.11"
+  },
+  "wrapper": {
+    "version": "3.3.4",
+    "type": "bin",
+    "sha256": "4e2fbf6554bc8a4702cdfdd3bef464f423393d784ddbb037216320ce55d5e4e1",
+    "officialSha1": "9a69c85449c23142f028e4566fa153e9fafe7a56",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.3.4/maven-wrapper-3.3.4.jar"
+  }
+}

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.conversations.ConversationMapper">
+  <sql id="conversationFields">id,tenant_id,customer_id,assigned_agent_id,title,status,version,generation_epoch,last_event_seq,created_at,updated_at,active_topic_id</sql>
+  <sql id="messageFields">id,conversation_id,sender_id,author_role,client_message_id,ai_run_id,body,CAST(citations AS CHAR CHARACTER SET utf8mb4) AS citationsText,draft_id,created_at,topic_id,routing_state,context_status,accepted_generation_epoch,trigger_run_id,trigger_job_id</sql>
+  <select id="get" resultType="cn.servicehub.conversations.ConversationMapper$ConversationRow">SELECT <include refid="conversationFields"/> FROM conversations WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+  <select id="lock" resultType="cn.servicehub.conversations.ConversationMapper$ConversationRow">SELECT <include refid="conversationFields"/> FROM conversations WHERE tenant_id=#{tenantId} AND id=#{id} FOR UPDATE</select>
+  <select id="list" resultType="cn.servicehub.conversations.ConversationMapper$ConversationRow">
+    SELECT <include refid="conversationFields"/> FROM conversations WHERE tenant_id=#{tenantId}
+    <if test="customerId != null">AND customer_id=#{customerId}</if><if test="cursor != null">AND id &lt; #{cursor}</if>
+    <if test="status != null">AND status=#{status}</if><if test="search != null">AND LOCATE(#{search},title)&gt;0</if>
+    ORDER BY id DESC LIMIT #{limit}
+  </select>
+  <select id="reply" resultType="cn.servicehub.conversations.ConversationMapper$ReplyRow">
+    SELECT r.id AS runId,r.state AS runState,j.state AS jobState,j.error_code,r.generation_epoch,j.attempts,j.execution_version
+    FROM ai_runs r JOIN jobs j ON j.tenant_id=r.tenant_id AND j.id=r.job_id
+    WHERE r.tenant_id=#{tenantId} AND r.conversation_id=#{conversationId} AND r.generation_epoch=#{epoch}
+  </select>
+  <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">INSERT INTO conversations(tenant_id,customer_id,title) VALUES(#{tenantId},#{customerId},#{title})</insert>
+  <insert id="insertTopic" parameterType="map" useGeneratedKeys="true" keyProperty="id">INSERT INTO conversation_topics(tenant_id,conversation_id,title) VALUES(#{tenantId},#{conversationId},#{title})</insert>
+  <update id="setTopic">UPDATE conversations SET active_topic_id=#{topicId} WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="advance">UPDATE conversations SET generation_epoch=generation_epoch+1,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <select id="lockRuns" resultType="long">SELECT id FROM ai_runs WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND generation_epoch &lt; #{beforeEpoch} ORDER BY id FOR UPDATE</select>
+  <update id="cancelRuns">UPDATE ai_runs SET state=#{state},terminal_reason='superseded',finished_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND generation_epoch &lt; #{beforeEpoch} AND state IN('QUEUED','RUNNING','WAITING_INPUT')</update>
+  <update id="excludeCancelledInstructions">UPDATE messages m JOIN ai_runs r ON r.tenant_id=m.tenant_id AND r.id=m.context_run_id SET m.context_status='SUPERSEDED' WHERE m.tenant_id=#{tenantId} AND m.conversation_id=#{conversationId} AND r.state IN('SUPERSEDED','CANCELLED') AND m.author_role='customer'</update>
+  <insert id="insertMessage" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO messages(tenant_id,conversation_id,sender_id,author_role,client_message_id,body,topic_id,routing_state,context_status,accepted_generation_epoch)
+    VALUES(#{tenantId},#{conversationId},#{senderId},#{authorRole},#{key},#{body},#{topicId},#{routingState},'ELIGIBLE',#{epoch})
+  </insert>
+  <select id="messageByKey" resultType="cn.servicehub.conversations.ConversationMapper$MessageRow">SELECT <include refid="messageFields"/> FROM messages WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND client_message_id=#{key}</select>
+  <select id="messageById" resultType="cn.servicehub.conversations.ConversationMapper$MessageRow">SELECT <include refid="messageFields"/> FROM messages WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+  <select id="messages" resultType="cn.servicehub.conversations.ConversationMapper$MessageRow">
+    SELECT <include refid="messageFields"/> FROM messages WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId}
+    <if test="cursor != null">AND id &lt; #{cursor}</if> ORDER BY id DESC LIMIT #{limit}
+  </select>
+  <insert id="insertRun" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ai_runs(tenant_id,conversation_id,topic_id,trigger_event_seq,generation_epoch,job_id,state,provider,auth_version,business_scope)
+    VALUES(#{tenantId},#{conversationId},#{topicId},#{eventSeq},#{epoch},#{jobId},'QUEUED','bailian',#{authVersion},CAST(#{scope} AS JSON))
+  </insert>
+  <update id="bindMessage">UPDATE messages SET trigger_run_id=#{runId},trigger_job_id=#{jobId},context_run_id=#{runId} WHERE tenant_id=#{tenantId} AND id=#{messageId} AND trigger_run_id IS NULL AND trigger_job_id IS NULL</update>
+  <update id="nextSeq">UPDATE conversations SET last_event_seq=last_event_seq+1 WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <insert id="insertEvent">INSERT INTO conversation_events(tenant_id,conversation_id,seq,kind,generation_epoch,payload) VALUES(#{tenantId},#{conversationId},#{seq},#{kind},#{epoch},CAST(#{payload} AS JSON))</insert>
+  <update id="refreshMessageEvent">UPDATE conversation_events SET payload=CAST(#{payload} AS JSON) WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND seq=#{seq} AND kind='message.created'</update>
+  <insert id="insertNotification">INSERT INTO outbox_events(tenant_id,kind,payload) VALUES(#{tenantId},'realtime',JSON_OBJECT('conversation_id',#{conversationId},'seq',#{seq}))</insert>
+  <select id="events" resultType="cn.servicehub.conversations.ConversationMapper$EventRow">SELECT kind,conversation_id,seq,generation_epoch,CAST(payload AS CHAR CHARACTER SET utf8mb4) AS payloadText FROM conversation_events WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND seq&gt;#{afterSeq} ORDER BY seq LIMIT #{limit}</select>
+  <update id="handoff">UPDATE conversations SET status='WAITING_HUMAN',version=version+1,generation_epoch=generation_epoch+1,updated_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND id=#{id} AND status='AI_ACTIVE'</update>
+  <update id="claim">UPDATE conversations SET status='HUMAN_ACTIVE',assigned_agent_id=#{agentId},version=version+1,generation_epoch=generation_epoch+1,claimed_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND id=#{id} AND status='WAITING_HUMAN' AND assigned_agent_id IS NULL AND version=#{version}</update>
+  <update id="close">UPDATE conversations SET status='CLOSED',version=version+1,generation_epoch=generation_epoch+1,closed_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND id=#{id} AND status!='CLOSED'</update>
+</mapper>

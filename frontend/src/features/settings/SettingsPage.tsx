@@ -116,7 +116,7 @@ export function SettingsPage() {
               </div>
               <div className="settings-list">
                 <div>
-                  <span>数据库与缓存</span>
+                  <span>整体就绪状态</span>
                   <strong className="row">
                     {ready.error ? (
                       <>
@@ -131,6 +131,20 @@ export function SettingsPage() {
                     )}
                   </strong>
                 </div>
+                {Object.entries(query.data.dependencies ?? {}).map(
+                  ([name, status]) => (
+                    <div key={name}>
+                      <span>
+                        {{
+                          database: "MySQL",
+                          redis: "Redis",
+                          rabbitmq: "RabbitMQ",
+                        }[name] ?? name}
+                      </span>
+                      <strong>{status === "ok" ? "就绪" : "暂不可用"}</strong>
+                    </div>
+                  ),
+                )}
               </div>
               {ready.error && (
                 <ErrorNotice

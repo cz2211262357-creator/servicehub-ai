@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.jobs.OutboxMapper">
+  <sql id="fields">id,tenant_id,job_id,kind,CAST(payload AS CHAR CHARACTER SET utf8mb4) AS payloadText,owner,lease_version</sql>
+  <sql id="due">dispatched_at IS NULL AND available_at&lt;=UTC_TIMESTAMP(6) AND (lease_expires_at IS NULL OR lease_expires_at&lt;=UTC_TIMESTAMP(6))</sql>
+  <select id="initial" resultType="long">SELECT id FROM outbox_events WHERE job_id=#{jobId} AND kind='job' AND dispatch_key='initial'</select>
+  <select id="pending" resultType="long">SELECT id FROM outbox_events WHERE <include refid="due"/> ORDER BY id LIMIT 100</select>
+  <select id="eligible" resultType="cn.servicehub.jobs.OutboxMapper$Row">SELECT <include refid="fields"/> FROM outbox_events WHERE id=#{id} AND <include refid="due"/> FOR UPDATE SKIP LOCKED</select>
+  <update id="claim">UPDATE outbox_events SET owner=#{owner},lease_version=lease_version+1,lease_expires_at=UTC_TIMESTAMP(6)+INTERVAL 30 SECOND,attempts=attempts+1 WHERE id=#{id} AND <include refid="due"/></update>
+  <select id="owned" resultType="cn.servicehub.jobs.OutboxMapper$Row">SELECT <include refid="fields"/> FROM outbox_events WHERE id=#{id}</select>
+  <sql id="fence">id=#{lease.id} AND tenant_id=#{lease.tenantId} AND owner=#{lease.owner} AND lease_version=#{lease.leaseVersion} AND dispatched_at IS NULL AND lease_expires_at&gt;UTC_TIMESTAMP(6)</sql>
+  <update id="confirm">UPDATE outbox_events SET dispatched_at=UTC_TIMESTAMP(6),owner=NULL,lease_expires_at=NULL WHERE <include refid="fence"/></update>
+  <update id="release">UPDATE outbox_events SET owner=NULL,lease_expires_at=NULL,available_at=UTC_TIMESTAMP(6)+INTERVAL 1 SECOND WHERE <include refid="fence"/></update>
+</mapper>

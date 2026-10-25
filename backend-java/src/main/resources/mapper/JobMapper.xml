@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.jobs.JobMapper">
+  <sql id="snapshot">id,state,execution_class AS executionClass,CAST(payload AS CHAR CHARACTER SET utf8mb4) AS payloadText</sql>
+  <select id="findByKey" resultType="map">
+    SELECT <include refid="snapshot"/> FROM jobs
+    WHERE tenant_id=#{tenantId} AND kind=#{kind} AND business_key=#{businessKey}
+  </select>
+  <select id="findLocked" resultType="map">
+    SELECT <include refid="snapshot"/> FROM jobs WHERE tenant_id=#{tenantId} AND id=#{id} FOR UPDATE
+  </select>
+  <insert id="insertOrGetId" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO jobs(tenant_id,kind,business_key,payload,state,execution_class,conversation_id,execution_version,
+      attempts,manual_retries,available_at,accepted_at,created_at)
+    VALUES(#{tenantId},#{kind},#{businessKey},CAST(#{payload} AS JSON),'QUEUED',#{executionClass},#{conversationId},0,0,0,
+      UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+    ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)
+  </insert>
+  <insert id="ensureInitialOutbox">
+    INSERT INTO outbox_events(tenant_id,job_id,kind,payload,dispatch_key,available_at,created_at)
+    VALUES(#{tenantId},#{jobId},'job',JSON_OBJECT(),'initial',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+    ON DUPLICATE KEY UPDATE id=id
+  </insert>
+  <update id="cancelForConversation">
+    UPDATE jobs SET state='CANCELLED',owner=NULL,lease_expires_at=NULL,finished_at=UTC_TIMESTAMP(6),error_code='superseded'
+    WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND execution_class='INTERACTIVE'
+      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.generation_epoch')) AS UNSIGNED) &lt; #{beforeEpoch}
+      AND state IN ('QUEUED','RETRY_WAIT','RUNNING','WAITING_INPUT')
+  </update>
+  <sql id="jobFields">id,tenant_id,kind,business_key,CAST(payload AS CHAR CHARACTER SET utf8mb4) AS payloadText,state,execution_class,conversation_id,execution_version,attempts,manual_retries,lifetime_attempts,owner,lease_expires_at,available_at,accepted_at,started_at,deadline_at,budget_revision,error_code</sql>
+  <select id="peek" resultType="cn.servicehub.jobs.JobMapper$JobRow">SELECT <include refid="jobFields"/> FROM jobs WHERE id=#{id}</select>
+  <select id="lockJob" resultType="cn.servicehub.jobs.JobMapper$JobRow">SELECT <include refid="jobFields"/> FROM jobs WHERE tenant_id=#{tenantId} AND id=#{id} FOR UPDATE</select>
+  <select id="lockConversation" resultType="cn.servicehub.jobs.JobMapper$ConversationScope">SELECT id,customer_id,status,generation_epoch AS epoch,active_topic_id AS topicId FROM conversations WHERE tenant_id=#{tenantId} AND id=#{id} FOR UPDATE</select>
+  <select id="lockRun" resultType="cn.servicehub.jobs.JobMapper$RunScope">SELECT id,conversation_id,topic_id,generation_epoch,auth_version,state,budget_revision,input_expires_at FROM ai_runs WHERE tenant_id=#{tenantId} AND job_id=#{jobId} FOR UPDATE</select>
+  <select id="lockDocument" resultType="cn.servicehub.jobs.JobMapper$DocumentScope">
+    SELECT d.id,d.enabled,d.deleted,d.version AS revision,v.id AS versionId,v.number,
+      (SELECT MAX(v2.number) FROM document_versions v2 WHERE v2.tenant_id=d.tenant_id AND v2.document_id=d.id) AS latestNumber,v.job_id
+    FROM knowledge_documents d JOIN document_versions v ON v.tenant_id=d.tenant_id AND v.document_id=d.id
+    WHERE d.tenant_id=#{tenantId} AND d.id=#{documentId} AND v.id=#{versionId} FOR UPDATE
+  </select>
+  <update id="manualRetry">UPDATE jobs SET state='RETRY_WAIT',manual_retries=manual_retries+1,budget_revision=budget_revision+1,attempts=0,owner=NULL,lease_expires_at=NULL,started_at=NULL,deadline_at=NULL,finished_at=NULL,error_code=NULL,error_message=NULL,result=NULL,accepted_at=UTC_TIMESTAMP(6),available_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND id=#{id} AND state='FAILED' AND budget_revision=#{revision}</update>
+  <update id="resetRunBudget">UPDATE ai_runs SET state='QUEUED',budget_revision=budget_revision+1,model_requests_reserved=0,tool_executions_reserved=0,classification_attempted=0,classification_result=NULL,started_at=NULL,finished_at=NULL,input_expires_at=NULL,error_code=NULL,terminal_reason=NULL,`usage`=NULL WHERE tenant_id=#{tenantId} AND job_id=#{id} AND budget_revision=#{revision} AND state='FAILED'</update>
+  <update id="resetDocumentStatus">UPDATE document_versions SET status='queued' WHERE tenant_id=#{tenantId} AND id=#{versionId} AND job_id=#{id} AND status!='ready'</update>
+  <select id="expiredInputs" resultType="long">SELECT j.id FROM jobs j JOIN ai_runs r ON r.tenant_id=j.tenant_id AND r.job_id=j.id WHERE j.state='WAITING_INPUT' AND r.state='WAITING_INPUT' AND r.input_expires_at&lt;=UTC_TIMESTAMP(6) ORDER BY j.id LIMIT 100</select>
+  <select id="now" resultType="java.time.Instant">SELECT UTC_TIMESTAMP(6)</select>
+  <update id="start">
+    UPDATE jobs SET state='RUNNING',owner=#{owner},execution_version=execution_version+1,attempts=attempts+1,lifetime_attempts=lifetime_attempts+1,
+      lease_expires_at=UTC_TIMESTAMP(6)+INTERVAL #{leaseSeconds} SECOND,started_at=COALESCE(started_at,UTC_TIMESTAMP(6)),
+      deadline_at=COALESCE(deadline_at,UTC_TIMESTAMP(6)+INTERVAL #{deadlineSeconds} SECOND),finished_at=NULL
+    WHERE tenant_id=#{tenantId} AND id=#{id} AND state IN('QUEUED','RETRY_WAIT') AND available_at&lt;=UTC_TIMESTAMP(6)
+  </update>
+  <sql id="currentLease">tenant_id=#{lease.tenantId} AND id=#{lease.jobId} AND owner=#{lease.owner} AND execution_version=#{lease.executionVersion}
+    AND budget_revision=#{lease.budgetRevision} AND state='RUNNING' AND lease_expires_at&gt;UTC_TIMESTAMP(6) AND deadline_at&gt;UTC_TIMESTAMP(6)</sql>
+  <update id="renew">UPDATE jobs SET lease_expires_at=UTC_TIMESTAMP(6)+INTERVAL #{leaseSeconds} SECOND WHERE <include refid="currentLease"/></update>
+  <update id="complete">UPDATE jobs SET state=#{state},result=CAST(#{result} AS JSON),finished_at=UTC_TIMESTAMP(6),owner=NULL,lease_expires_at=NULL WHERE <include refid="currentLease"/></update>
+  <update id="retire">UPDATE jobs SET state=#{state},error_code=#{code},finished_at=UTC_TIMESTAMP(6),owner=NULL,lease_expires_at=NULL WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="retry">UPDATE jobs SET state='RETRY_WAIT',error_code=#{code},available_at=UTC_TIMESTAMP(6)+INTERVAL #{delay} SECOND,owner=NULL,lease_expires_at=NULL WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <insert id="retryOutbox">INSERT INTO outbox_events(tenant_id,job_id,kind,payload,dispatch_key,available_at) SELECT tenant_id,id,'job',JSON_OBJECT(),#{key},available_at FROM jobs j WHERE j.tenant_id=#{tenantId} AND j.id=#{jobId} ON DUPLICATE KEY UPDATE outbox_events.id=outbox_events.id</insert>
+  <update id="runState">UPDATE ai_runs SET state=#{state},error_code=#{code},terminal_reason=#{code},started_at=IF(#{state}='RUNNING',COALESCE(started_at,UTC_TIMESTAMP(6)),started_at),finished_at=IF(#{state} IN('RUNNING','QUEUED'),NULL,UTC_TIMESTAMP(6)) WHERE tenant_id=#{tenantId} AND job_id=#{jobId}</update>
+  <select id="recoverable" resultType="long">
+    SELECT id FROM jobs WHERE (state='RUNNING' AND (lease_expires_at&lt;=UTC_TIMESTAMP(6) OR deadline_at&lt;=UTC_TIMESTAMP(6)))
+      OR (state IN('QUEUED','RETRY_WAIT') AND ((deadline_at IS NOT NULL AND deadline_at&lt;=UTC_TIMESTAMP(6))
+      OR (started_at IS NULL AND TIMESTAMPDIFF(SECOND,accepted_at,UTC_TIMESTAMP(6))&gt;=IF(execution_class='INTERACTIVE',#{foregroundQueue},#{backgroundQueue}))))
+    ORDER BY id LIMIT 100
+  </select>
+</mapper>

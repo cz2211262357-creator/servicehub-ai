@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.operations.OperationsMapper">
+ <sql id="jobFields">id,tenant_id,kind,state,CAST(payload AS CHAR CHARACTER SET utf8mb4) AS payloadText,execution_version,attempts,error_code,available_at,finished_at,manual_retries,lifetime_attempts,budget_revision,deadline_at</sql>
+ <select id="job" resultType="cn.servicehub.operations.OperationsMapper$JobRow">SELECT <include refid="jobFields"/> FROM jobs WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+ <select id="jobs" resultType="cn.servicehub.operations.OperationsMapper$JobRow">
+  SELECT <include refid="jobFields"/> FROM jobs WHERE tenant_id=#{tenantId}
+  <if test="cursor != null">AND id&lt;#{cursor}</if>
+  <if test="states != null">AND state IN <foreach collection="states" item="state" open="(" close=")" separator=",">#{state}</foreach></if>
+  ORDER BY id DESC LIMIT #{limit}
+ </select>
+ <select id="audits" resultType="cn.servicehub.operations.OperationsMapper$AuditRow">
+  SELECT id,tenant_id,actor_id,action,target_type,target_id,outcome,request_id,CAST(details AS CHAR CHARACTER SET utf8mb4) AS detailsText,created_at
+  FROM audit_logs WHERE tenant_id=#{tenantId}
+  <if test="cursor != null">AND id&lt;#{cursor}</if><if test="action != null">AND action=#{action}</if><if test="outcome != null">AND outcome=#{outcome}</if>
+  ORDER BY id DESC LIMIT #{limit}
+ </select>
+ <insert id="audit">INSERT INTO audit_logs(tenant_id,actor_id,action,target_type,target_id,outcome,request_id,details) VALUES(#{tenantId},#{actorId},#{action},#{targetType},#{targetId},#{outcome},#{requestId},CAST(#{details} AS JSON))</insert>
+ <sql id="window">tenant_id=#{tenantId} AND created_at&gt;=#{start} AND created_at&lt;#{end}</sql>
+ <select id="conversationCounts" resultType="cn.servicehub.operations.OperationsMapper$ConversationCounts">
+  SELECT COUNT(*) AS total,COALESCE(SUM(status='WAITING_HUMAN'),0) AS waiting,COALESCE(SUM(status='HUMAN_ACTIVE'),0) AS human FROM conversations WHERE <include refid="window"/>
+ </select>
+ <select id="handoffs" resultType="long">
+  SELECT COUNT(DISTINCT c.id) FROM conversations c JOIN audit_logs a ON a.tenant_id=c.tenant_id AND a.target_id=CAST(c.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AND a.action='conversation.handoff' AND a.created_at&lt;#{end}
+  WHERE c.tenant_id=#{tenantId} AND c.created_at&gt;=#{start} AND c.created_at&lt;#{end}
+ </select>
+ <select id="jobStates" resultType="cn.servicehub.operations.OperationsMapper$StateCount">SELECT state,COUNT(*) AS count FROM jobs WHERE <include refid="window"/> GROUP BY state</select>
+ <sql id="knownTokens">CASE WHEN JSON_TYPE(JSON_EXTRACT(`usage`,'$.total_tokens'))='INTEGER' THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(`usage`,'$.total_tokens')) AS UNSIGNED) ELSE NULL END</sql>
+ <select id="usage" resultType="cn.servicehub.operations.OperationsMapper$UsageCounts">
+  SELECT COUNT(*) AS total,COUNT(<include refid="knownTokens"/>) AS known,SUM(<include refid="knownTokens"/>) AS tokens FROM ai_runs WHERE <include refid="window"/>
+ </select>
+ <select id="daily" resultType="cn.servicehub.operations.OperationsDtos$DailyCount">SELECT DATE_FORMAT(created_at,'%Y-%m-%d') AS date,COUNT(*) AS count FROM conversations WHERE <include refid="window"/> GROUP BY DATE_FORMAT(created_at,'%Y-%m-%d') ORDER BY date</select>
+ <select id="firstResponse" resultType="double">
+  SELECT AVG(TIMESTAMPDIFF(MICROSECOND,f.sent,(SELECT MIN(m.created_at) FROM messages m WHERE m.tenant_id=c.tenant_id AND m.conversation_id=c.id AND m.author_role IN('ai','agent') AND m.created_at&gt;=f.sent)))/1000.0
+  FROM conversations c JOIN (SELECT conversation_id,MIN(created_at) AS sent FROM messages WHERE tenant_id=#{tenantId} AND author_role='customer' GROUP BY conversation_id) f ON f.conversation_id=c.id
+  WHERE c.tenant_id=#{tenantId} AND c.created_at&gt;=#{start} AND c.created_at&lt;#{end}
+ </select>
+</mapper>

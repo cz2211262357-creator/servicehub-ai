@@ -14,3 +14,6 @@ frontend/dist
 .idea
 .pytest_cache
 .coverage
+
+**/target
+**/.cache

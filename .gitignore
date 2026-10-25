@@ -16,3 +16,5 @@ htmlcov/
 .idea/
 *.log
 *.tsbuildinfo
+
+**/target/

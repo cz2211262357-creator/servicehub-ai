@@ -1,6 +1,6 @@
 # 实际验证记录：2026-10-21
 
-以下均来自本机实际执行。项目 <项目目录>。外部真实模型 Key 仅在未跟踪 .env 中，源码候选文件已按实际 Key 值扫描，未发现泄露。
+以下均来自本机实际执行。项目 D:\研究生\简历1\qz-project，分支 feat/servicehub-platform。外部真实模型 Key 仅在未跟踪 .env 中，源码候选文件已按实际 Key 值扫描，未发现泄露。
 
 ## 环境
 
@@ -31,7 +31,7 @@ Windows 11 build 26200；AMD Ryzen 9 7945HX，16 核/32 线程，物理可用内
 
 ## 最终整体审查与修复
 
-八项评审问题全部完成 RED→GREEN，随后整套回归通过；没有再次派发评审，也没有遗留延后的小问题：
+最终功能修复提交 7a6a7c0。八项评审问题全部完成 RED→GREEN，随后整套回归通过；没有再次派发评审，也没有遗留延后的小问题：
 
 1. 慢任务期间 Outbox 与任务回收独立前进，有空闲槽时继续领取任务。
 2. 单项租约失效只取消该项执行；主动停止 Worker 仍能取消所有子任务。
@@ -42,7 +42,7 @@ Windows 11 build 26200；AMD Ryzen 9 7945HX，16 核/32 线程，物理可用内
 7. 前端按会话选择代次丢弃迟到的消息发送和历史分页响应。
 8. 引用下载带精确版本，客户只可读取自己历史回复引用的旧版本；他人、未引用或停用文档版本不可越权下载。
 
-覆盖见 test_worker_scheduling、test_context_budget、test_failure_outcomes、test_commit_fence、test_active_retrieval、test_citation_download 与 live.recovery.test.tsx。实现范围及尚待验证项见本文末节。
+覆盖见 test_worker_scheduling、test_context_budget、test_failure_outcomes、test_commit_fence、test_active_retrieval、test_citation_download 与 live.recovery.test.tsx。完整取舍及代价见 [执行记录](执行记录.md)。
 
 最终镜像浏览器截图：
 

@@ -82,6 +82,7 @@ export function Badge({ value }: { value: string }) {
     failed: "失败",
     succeeded: "成功",
     cancelled: "已取消",
+    waiting_input: "待补充信息",
   };
   return (
     <span className={"badge status-" + value.toLowerCase()}>

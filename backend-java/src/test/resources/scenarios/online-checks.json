@@ -1,0 +1,40 @@
+{
+  "provider": "bailian",
+  "chat_model": "qwen-plus",
+  "embedding_model": "text-embedding-v4",
+  "embedding_dimensions": 1024,
+  "required_steps": [
+    "text_pdf_upload",
+    "real_embedding_activation",
+    "chinese_answer_with_current_citations",
+    "lookup_order_tool",
+    "prepare_after_sale_tool",
+    "explicit_customer_confirmation",
+    "human_handoff_claim_reply",
+    "new_message_interrupts_stream",
+    "explicit_stop_interrupts_stream",
+    "topic_a_b_a_discards_old_output",
+    "fifteen_routing_samples"
+  ],
+  "report_fields": [
+    "provider_response_model",
+    "actual_usage_or_null",
+    "queue_ms",
+    "first_delta_ms",
+    "completion_ms",
+    "local_cancel_ms",
+    "persisted_old_result_count",
+    "routing_expected",
+    "routing_actual",
+    "routing_requires_clarification",
+    "classification_request_count",
+    "failures"
+  ],
+  "rules": [
+    "No hardcoded production answer.",
+    "No API keys or credentials in command line or report.",
+    "A missing usage field stays null.",
+    "Do not claim that local HTTP cancellation stopped supplier computation.",
+    "Routing sample outcomes are measured, not predetermined."
+  ]
+}

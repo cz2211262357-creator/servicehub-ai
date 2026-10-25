@@ -1,0 +1,196 @@
+[
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "logprobs": null,
+        "index": 0,
+        "delta": {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "index": 0,
+              "id": "call-bailian-fixture",
+              "type": "function",
+              "function": {
+                "name": "lookup_order",
+                "arguments": ""
+              }
+            }
+          ]
+        },
+        "finish_reason": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {
+          "content": "",
+          "tool_calls": [
+            {
+              "index": 0,
+              "id": "",
+              "type": "function",
+              "function": {
+                "arguments": "{\""
+              }
+            }
+          ]
+        },
+        "index": 0,
+        "finish_reason": null,
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {
+          "content": "",
+          "tool_calls": [
+            {
+              "index": 0,
+              "id": "",
+              "type": "function",
+              "function": {
+                "arguments": "order_number\":"
+              }
+            }
+          ]
+        },
+        "index": 0,
+        "finish_reason": null,
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {
+          "content": "",
+          "tool_calls": [
+            {
+              "index": 0,
+              "id": "",
+              "type": "function",
+              "function": {
+                "arguments": " \"ORD-S"
+              }
+            }
+          ]
+        },
+        "index": 0,
+        "finish_reason": null,
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {
+          "content": "",
+          "tool_calls": [
+            {
+              "index": 0,
+              "id": "",
+              "type": "function",
+              "function": {
+                "arguments": "YSTEM-1000"
+              }
+            }
+          ]
+        },
+        "index": 0,
+        "finish_reason": null,
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {
+          "content": "",
+          "tool_calls": [
+            {
+              "index": 0,
+              "id": "",
+              "type": "function",
+              "function": {
+                "arguments": "000\"}"
+              }
+            }
+          ]
+        },
+        "index": 0,
+        "finish_reason": null,
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": null
+              },
+              "index": 0,
+              "id": "",
+              "type": "function"
+            }
+          ],
+          "content": ""
+        },
+        "index": 0,
+        "finish_reason": null,
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [
+      {
+        "delta": {},
+        "index": 0,
+        "finish_reason": "stop",
+        "logprobs": null
+      }
+    ],
+    "usage": null
+  },
+  {
+    "model": "qwen-plus",
+    "choices": [],
+    "usage": {
+      "total_tokens": 204,
+      "completion_tokens": 21,
+      "prompt_tokens": 183,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  }
+]

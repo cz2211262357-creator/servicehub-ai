@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.orders.OrderMapper">
+  <sql id="fields">id,order_number,customer_id,status,total_amount,currency,tracking_number,carrier,delivery_summary,created_at</sql>
+  <sql id="visible">tenant_id=#{tenantId}<if test="customerId != null"> AND customer_id=#{customerId}</if></sql>
+  <select id="lockById" resultType="cn.servicehub.orders.OrderMapper$OrderRow">SELECT <include refid="fields"/> FROM orders WHERE <include refid="visible"/> AND id=#{id} FOR UPDATE</select>
+  <select id="byNumber" resultType="cn.servicehub.orders.OrderMapper$OrderRow">SELECT <include refid="fields"/> FROM orders WHERE <include refid="visible"/> AND order_number=#{number}</select>
+  <select id="lockByNumber" resultType="cn.servicehub.orders.OrderMapper$OrderRow">SELECT <include refid="fields"/> FROM orders WHERE <include refid="visible"/> AND order_number=#{number} FOR UPDATE</select>
+  <select id="list" resultType="cn.servicehub.orders.OrderMapper$OrderRow">SELECT <include refid="fields"/> FROM orders WHERE <include refid="visible"/><if test="cursor != null"> AND id &lt; #{cursor}</if><if test="search != null"> AND order_number=#{search}</if> ORDER BY id DESC LIMIT #{limit}</select>
+  <select id="items" resultType="cn.servicehub.orders.OrderDtos$OrderItemDto">SELECT id,product_name,sku,quantity,unit_price FROM order_items WHERE tenant_id=#{tenantId} AND order_id=#{id} ORDER BY id</select>
+</mapper>

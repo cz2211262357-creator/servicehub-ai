@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.auth.MemberMapper">
+  <sql id="fields">id,tenant_id,email,display_name,password_hash,role,is_active AS active,session_version,created_at</sql>
+  <select id="byEmail" resultType="cn.servicehub.auth.MemberMapper$UserRow">SELECT <include refid="fields"/> FROM users WHERE tenant_id=#{tenantId} AND email=#{email}</select>
+  <select id="byId" resultType="cn.servicehub.auth.MemberMapper$UserRow">SELECT <include refid="fields"/> FROM users WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+  <select id="lockById" resultType="cn.servicehub.auth.MemberMapper$UserRow">SELECT <include refid="fields"/> FROM users WHERE tenant_id=#{tenantId} AND id=#{id} FOR UPDATE</select>
+  <select id="list" resultType="cn.servicehub.auth.MemberMapper$UserRow">
+    SELECT <include refid="fields"/> FROM users WHERE tenant_id=#{tenantId}
+    <if test="cursor != null">AND id &lt; #{cursor}</if> ORDER BY id DESC LIMIT #{limit}
+  </select>
+  <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO users(tenant_id,email,display_name,password_hash,role) VALUES(#{tenantId},#{email},#{displayName},#{passwordHash},#{role})
+  </insert>
+  <update id="update">
+    UPDATE users SET role=COALESCE(#{role},role),is_active=COALESCE(#{active},is_active),
+      display_name=COALESCE(#{displayName},display_name),session_version=session_version+IF(#{bump},1,0)
+    WHERE tenant_id=#{tenantId} AND id=#{id}
+  </update>
+  <select id="conversationCustomer" resultType="long">SELECT customer_id FROM conversations WHERE tenant_id=#{tenantId} AND id=#{conversationId}</select>
+</mapper>

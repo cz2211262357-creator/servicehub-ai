@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.aftersales.AfterSaleMapper">
+  <sql id="draftFields">id,order_id,customer_id,kind,reason,version,expires_at,consumed</sql>
+  <sql id="ticketFields">id,draft_id,order_id,customer_id,kind,reason,status,version,created_at,request_hash</sql>
+  <sql id="ticketVisible">tenant_id=#{tenantId}<if test="customerId != null"> AND customer_id=#{customerId}</if></sql>
+  <insert id="insertDraft" parameterType="map" useGeneratedKeys="true" keyProperty="id">INSERT INTO ticket_drafts(tenant_id,order_id,customer_id,kind,reason,expires_at) VALUES(#{tenantId},#{orderId},#{customerId},#{kind},#{reason},UTC_TIMESTAMP(6)+INTERVAL 15 MINUTE)</insert>
+  <select id="lockDraft" resultType="cn.servicehub.aftersales.AfterSaleMapper$DraftRow">SELECT <include refid="draftFields"/> FROM ticket_drafts WHERE tenant_id=#{tenantId} AND customer_id=#{customerId} AND id=#{id} FOR UPDATE</select>
+  <select id="draftById" resultType="cn.servicehub.aftersales.AfterSaleMapper$DraftRow">SELECT <include refid="draftFields"/> FROM ticket_drafts WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+  <select id="drafts" resultType="cn.servicehub.aftersales.AfterSaleMapper$DraftRow">SELECT <include refid="draftFields"/> FROM ticket_drafts WHERE tenant_id=#{tenantId} AND customer_id=#{customerId} AND consumed=0 AND expires_at&gt;UTC_TIMESTAMP(6) ORDER BY id DESC LIMIT 30</select>
+  <select id="byKey" resultType="cn.servicehub.aftersales.AfterSaleMapper$TicketRow">SELECT <include refid="ticketFields"/> FROM after_sale_tickets WHERE tenant_id=#{tenantId} AND idempotency_key=#{key}</select>
+  <select id="ticket" resultType="cn.servicehub.aftersales.AfterSaleMapper$TicketRow">SELECT <include refid="ticketFields"/> FROM after_sale_tickets WHERE <include refid="ticketVisible"/> AND id=#{id}</select>
+  <select id="lockTicket" resultType="cn.servicehub.aftersales.AfterSaleMapper$TicketRow">SELECT <include refid="ticketFields"/> FROM after_sale_tickets WHERE <include refid="ticketVisible"/> AND id=#{id} FOR UPDATE</select>
+  <select id="tickets" resultType="cn.servicehub.aftersales.AfterSaleMapper$TicketRow">
+    SELECT <include refid="ticketFields"/> FROM after_sale_tickets WHERE <include refid="ticketVisible"/>
+    <if test="cursor != null"> AND id &lt; #{cursor}</if><if test="status != null"> AND status=#{status}</if> ORDER BY id DESC LIMIT #{limit}
+  </select>
+  <insert id="insertTicket" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO after_sale_tickets(tenant_id,draft_id,customer_id,order_id,kind,reason,idempotency_key,request_hash)
+    VALUES(#{tenantId},#{draftId},#{customerId},#{orderId},#{kind},#{reason},#{key},#{hash})
+  </insert>
+  <update id="consume">UPDATE ticket_drafts SET consumed=1 WHERE tenant_id=#{tenantId} AND id=#{id} AND version=#{version} AND consumed=0</update>
+  <update id="transition">UPDATE after_sale_tickets SET status=#{status},version=version+1 WHERE tenant_id=#{tenantId} AND id=#{id} AND version=#{version}</update>
+  <insert id="event">INSERT INTO ticket_events(tenant_id,ticket_id,actor_id,from_status,to_status,note) VALUES(#{tenantId},#{ticketId},#{actorId},#{from},#{to},#{note})</insert>
+  <select id="events" resultType="cn.servicehub.aftersales.AfterSaleDtos$TicketEventDto">SELECT id,actor_id,from_status,to_status,note,created_at FROM ticket_events WHERE tenant_id=#{tenantId} AND ticket_id=#{ticketId} ORDER BY id</select>
+  <select id="now" resultType="java.time.Instant">SELECT UTC_TIMESTAMP(6)</select>
+  <insert id="insertAgentDraft" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ticket_drafts(tenant_id,order_id,customer_id,kind,reason,expires_at,origin_topic_id,origin_run_id,origin_epoch,origin_budget_revision,action_hash)
+    VALUES(#{tenantId},#{orderId},#{customerId},#{kind},#{reason},UTC_TIMESTAMP(6)+INTERVAL 15 MINUTE,#{topicId},#{runId},#{epoch},#{budgetRevision},#{hash})
+  </insert>
+  <select id="agentDraft" resultType="cn.servicehub.aftersales.AfterSaleMapper$DraftRow">
+    SELECT <include refid="draftFields"/> FROM ticket_drafts WHERE tenant_id=#{tenantId} AND origin_run_id=#{runId} AND origin_budget_revision=#{budgetRevision} AND action_hash=#{hash} FOR UPDATE
+  </select>
+</mapper>

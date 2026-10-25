@@ -250,6 +250,9 @@ export function OverviewPage() {
                       </p>
                     </>
                   )}
+                  {data.ai_runs > data.usage_records && (
+                    <p>{data.ai_runs - data.usage_records} 次运行未记录用量</p>
+                  )}
                   <div className="usage-footnote">
                     费用暂不计算，最终账单以供应商为准。
                   </div>

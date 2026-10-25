@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: servicehub-ai
+  profiles:
+    default: api
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+server:
+  address: 127.0.0.1
+  port: ${SERVICEHUB_JAVA_PORT:8001}
+  error:
+    include-message: never
+    include-stacktrace: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: never
+servicehub:
+  workspace-root: ${SERVICEHUB_WORKSPACE_ROOT:}
+  upload-directory: ${SERVICEHUB_JAVA_UPLOAD_DIR:}
+  environment: ${SERVICEHUB_JAVA_ENVIRONMENT:development}
+  session-cookie-name: servicehub_java_session
+  session-ttl-seconds: 28800
+  cookie-secure: ${SERVICEHUB_JAVA_COOKIE_SECURE:false}
+  allowed-origins:
+    - http://localhost:8081
+    - http://127.0.0.1:8081
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+  database:
+    url: ${SERVICEHUB_JAVA_JDBC_URL:jdbc:mysql://127.0.0.1:3307/servicehub_java?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&preserveInstants=true}
+    username: ${SERVICEHUB_JAVA_DB_USER:servicehub_java}
+    password: ${SERVICEHUB_JAVA_DB_PASSWORD:}
+  redis:
+    host: ${SERVICEHUB_JAVA_REDIS_HOST:127.0.0.1}
+    port: ${SERVICEHUB_JAVA_REDIS_PORT:6381}
+    password: ${SERVICEHUB_JAVA_REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${SERVICEHUB_JAVA_RABBIT_HOST:127.0.0.1}
+    port: ${SERVICEHUB_JAVA_RABBIT_PORT:5673}
+    username: ${SERVICEHUB_JAVA_RABBIT_USER:servicehub_java}
+    password: ${SERVICEHUB_JAVA_RABBIT_PASSWORD:}
+  model:
+    base-url: ${SERVICEHUB_MODEL_BASE_URL:}
+    name: ${SERVICEHUB_MODEL_NAME:qwen-plus}
+    api-key: ${SERVICEHUB_MODEL_API_KEY:}
+    embedding-base-url: ${SERVICEHUB_EMBEDDING_BASE_URL:}
+    embedding-name: ${SERVICEHUB_EMBEDDING_MODEL:text-embedding-v4}
+    embedding-api-key: ${SERVICEHUB_EMBEDDING_API_KEY:}
+    embedding-dimensions: 1024
+    timeout-seconds: 45
+  limits:
+    max-upload-bytes: 10485760
+    input-characters: 8000
+    context-messages: 20
+    context-characters: 16000
+    max-output-tokens: 1600
+    model-requests: 6
+    tool-executions: 4
+    foreground-queue-seconds: 60
+    foreground-deadline-seconds: 120
+    background-queue-seconds: 600
+    background-deadline-seconds: 600
+    total-execution-slots: 4
+    background-execution-slots: 3
+    total-model-slots: 4
+    background-model-slots: 3
+    rate-limit-requests: 30
+    rate-limit-window-seconds: 60
+  worker:
+    lease-seconds: 60
+    renewal-seconds: 10
+    max-attempts: 3
+    retry-delays-seconds: [5, 30]
+---
+spring:
+  config:
+    activate:
+      on-profile: worker
+  main:
+    web-application-type: none

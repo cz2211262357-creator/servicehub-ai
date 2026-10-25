@@ -1,11 +1,11 @@
 # PyCharm 与启动
 
-使用 git clone 得到的项目根目录。使用 PyCharm 打开该目录，在 Python Interpreter 选择现有解释器 .venv\Scripts\python.exe；API 与 Worker 的工作目录均为项目根目录。已经提供 .run/API.run.xml 与 .run/Worker.run.xml，可从运行配置选择。配置由项目根 .env 加载；不要把密钥填进可提交的运行配置 XML。
+项目位置固定为 D:\研究生\简历1\qz-project。使用 PyCharm 打开该目录，在 Python Interpreter 选择现有解释器 .venv\Scripts\python.exe；API 与 Worker 的工作目录均为项目根目录。已经提供 .run/API.run.xml 与 .run/Worker.run.xml，可从运行配置选择。配置由项目根 .env 加载；不要把密钥填进可提交的运行配置 XML。
 
 首次安装或重新同步依赖：
 
 ~~~powershell
-Set-Location '<项目目录>'
+Set-Location 'D:\研究生\简历1\qz-project'
 .\scripts\bootstrap.ps1
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ~~~
@@ -50,7 +50,7 @@ docker compose --profile app up -d --wait api worker web
 docker compose --profile app build --build-arg PYTHON_IMAGE=mirror.gcr.io/library/python:3.12-slim --build-arg NODE_IMAGE=mirror.gcr.io/library/node:26-alpine --build-arg NGINX_IMAGE=mirror.gcr.io/library/nginx:1.28-alpine
 ~~~
 
-若重新创建了 API 而保留旧 Web 容器，执行 docker compose --profile app restart web，使 Nginx 重新解析容器地址。电脑重启后先启动 Docker Desktop，再运行上述启动命令。
+若重新创建了 API 而保留旧 Web 容器，执行 docker compose --profile app restart web，使 Nginx 重新解析容器地址。电脑重启后先启动项目 .tools/docker/Docker Desktop.exe，再运行上述启动命令。
 
 停止容器保留项目数据：docker compose --profile app stop。不要使用带删除数据含义的清理命令来“重置问题”。
 

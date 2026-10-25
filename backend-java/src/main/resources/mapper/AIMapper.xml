@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.ai.AIMapper">
+  <select id="classification" resultType="cn.servicehub.ai.AIMapper$ClassificationRow">SELECT classification_attempted AS attempted,CAST(classification_result AS CHAR) AS result_text FROM ai_runs WHERE tenant_id=#{tenantId} AND job_id=#{jobId}</select>
+  <update id="claimClassification">UPDATE ai_runs SET classification_attempted=1 WHERE tenant_id=#{tenantId} AND job_id=#{jobId} AND budget_revision=#{budgetRevision} AND state='RUNNING' AND classification_attempted=0</update>
+  <update id="saveClassification">UPDATE ai_runs SET classification_result=CAST(#{decision} AS JSON) WHERE tenant_id=#{tenantId} AND job_id=#{jobId} AND budget_revision=#{budgetRevision} AND state='RUNNING' AND classification_attempted=1 AND classification_result IS NULL</update>
+  <select id="budget" resultType="cn.servicehub.ai.AIMapper$BudgetRow">
+    SELECT r.id AS run_id,r.model_requests_reserved,r.tool_executions_reserved,j.deadline_at,UTC_TIMESTAMP(6) AS database_now
+    FROM ai_runs r JOIN jobs j ON j.tenant_id=r.tenant_id AND j.id=r.job_id
+    WHERE r.tenant_id=#{tenantId} AND r.job_id=#{jobId}
+  </select>
+  <update id="reserveModel">UPDATE ai_runs SET model_requests_reserved=model_requests_reserved+1 WHERE tenant_id=#{tenantId} AND job_id=#{jobId} AND budget_revision=#{budgetRevision} AND state='RUNNING' AND model_requests_reserved&lt;#{limit}</update>
+  <update id="reserveTool">UPDATE ai_runs SET tool_executions_reserved=tool_executions_reserved+1 WHERE tenant_id=#{tenantId} AND job_id=#{jobId} AND budget_revision=#{budgetRevision} AND state='RUNNING' AND tool_executions_reserved&lt;#{limit}</update>
+  <insert id="insertTool">INSERT INTO tool_calls(tenant_id,ai_run_id,execution_version,step,tool_name,arguments_summary,outcome) VALUES(#{tenantId},#{runId},#{executionVersion},#{step},#{name},CAST(#{summary} AS JSON),'started')</insert>
+  <update id="finishTool">UPDATE tool_calls SET outcome=#{outcome},latency_ms=#{latency},error_code=#{code} WHERE tenant_id=#{tenantId} AND ai_run_id=#{runId} AND execution_version=#{executionVersion} AND step=#{step} AND outcome='started'</update>
+  <insert id="insertAnswer" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO messages(tenant_id,conversation_id,sender_id,author_role,ai_run_id,body,citations,draft_id,topic_id,routing_state,context_status)
+    VALUES(#{tenantId},#{conversationId},NULL,'ai',#{runId},#{body},CAST(#{citations} AS JSON),#{draftId},#{topicId},'RESOLVED','ELIGIBLE')
+  </insert>
+  <update id="result">UPDATE ai_runs SET model=#{model},`usage`=CAST(#{usage} AS JSON) WHERE tenant_id=#{tenantId} AND id=#{runId} AND state='RUNNING'</update>
+  <select id="validDraft" resultType="int">SELECT COUNT(*) FROM ticket_drafts WHERE tenant_id=#{tenantId} AND customer_id=#{customerId} AND id=#{draftId} AND origin_run_id=#{runId} AND origin_topic_id=#{topicId} AND origin_epoch=#{epoch} AND origin_budget_revision=#{revision} AND consumed=0 AND expires_at&gt;UTC_TIMESTAMP(6)</select>
+</mapper>

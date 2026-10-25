@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, test, vi } from "vitest";
 import { OverviewPage } from "./OverviewPage";
@@ -6,7 +6,10 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("../../app/AuthProvider", () => ({
   useAuth: () => ({ user: { id: 1, tenant_id: 1, role: "admin" } }),
 }));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 test("unknown provider usage is shown as unavailable rather than invented cost", async () => {
   vi.stubGlobal(
     "fetch",
@@ -36,4 +39,34 @@ test("unknown provider usage is shown as unavailable rather than invented cost",
   );
   expect(await screen.findByText("12")).toBeInTheDocument();
   expect(screen.getByText("暂无模型用量记录")).toBeInTheDocument();
+});
+
+test("partial provider usage explicitly counts runs without a recorded total", async () => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({
+          conversations: 1,
+          waiting: 0,
+          handoff_count: 0,
+          handoff_rate: 0,
+          failed_jobs: 0,
+          first_response_ms: null,
+          total_tokens: 12,
+          usage_records: 1,
+          ai_runs: 3,
+          daily: [],
+          job_states: {},
+        }),
+      ),
+  );
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <OverviewPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("2 次运行未记录用量")).toBeInTheDocument();
 });

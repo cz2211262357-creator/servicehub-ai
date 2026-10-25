@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.knowledge.KnowledgeMapper">
+  <sql id="documentFields">id,tenant_id,title,uploaded_by,enabled,deleted,version,created_at</sql>
+  <sql id="versionFields">id,tenant_id,document_id,number,storage_key,filename,media_type,size_bytes,sha256,status,error_code,job_id,embedding_model,embedding_dimensions,index_execution_version,created_at</sql>
+  <select id="document" resultType="cn.servicehub.knowledge.KnowledgeMapper$DocumentRow">SELECT <include refid="documentFields"/> FROM knowledge_documents WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0</select>
+  <select id="lockDocument" resultType="cn.servicehub.knowledge.KnowledgeMapper$DocumentRow">SELECT <include refid="documentFields"/> FROM knowledge_documents WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0 FOR UPDATE</select>
+  <select id="list" resultType="cn.servicehub.knowledge.KnowledgeMapper$DocumentRow">SELECT <include refid="documentFields"/> FROM knowledge_documents WHERE tenant_id=#{tenantId} AND deleted=0 <if test="customer">AND enabled=1</if><if test="cursor != null">AND id&lt;#{cursor}</if> ORDER BY id DESC LIMIT #{limit}</select>
+  <select id="latest" resultType="cn.servicehub.knowledge.KnowledgeMapper$VersionRow">SELECT <include refid="versionFields"/> FROM document_versions WHERE tenant_id=#{tenantId} AND document_id=#{documentId} ORDER BY number DESC LIMIT 1</select>
+  <select id="version" resultType="cn.servicehub.knowledge.KnowledgeMapper$VersionRow">SELECT <include refid="versionFields"/> FROM document_versions WHERE tenant_id=#{tenantId} AND document_id=#{documentId} AND id=#{id}</select>
+  <select id="active" resultType="long">SELECT version_id FROM knowledge_active_versions WHERE tenant_id=#{tenantId} AND document_id=#{documentId}</select>
+  <insert id="insertDocument" useGeneratedKeys="true" keyProperty="id">INSERT INTO knowledge_documents(tenant_id,title,uploaded_by) VALUES(#{tenantId},#{title},#{actorId})</insert>
+  <insert id="insertVersion" useGeneratedKeys="true" keyProperty="id">INSERT INTO document_versions(tenant_id,document_id,number,storage_key,filename,media_type,size_bytes,sha256,status) VALUES(#{tenantId},#{documentId},#{number},#{key},#{filename},#{mediaType},#{size},#{sha256},'queued')</insert>
+  <update id="advance">UPDATE knowledge_documents SET version=version+1 WHERE tenant_id=#{tenantId} AND id=#{id} AND version=#{version} AND deleted=0</update>
+  <update id="enable">UPDATE knowledge_documents SET enabled=#{enabled},version=version+1 WHERE tenant_id=#{tenantId} AND id=#{id} AND version=#{version} AND deleted=0</update>
+  <update id="remove">UPDATE knowledge_documents SET deleted=1,enabled=0,version=version+1 WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0</update>
+  <update id="bindJob">UPDATE document_versions SET job_id=#{jobId} WHERE tenant_id=#{tenantId} AND id=#{id} AND job_id IS NULL</update>
+  <select id="cited" resultType="int">
+    SELECT COUNT(*) FROM messages m JOIN conversations c ON c.tenant_id=m.tenant_id AND c.id=m.conversation_id
+    WHERE m.tenant_id=#{tenantId} AND c.customer_id=#{customerId} AND m.author_role='ai'
+      AND JSON_CONTAINS(m.citations,JSON_ARRAY(JSON_OBJECT('document_id',#{documentId},'version_id',#{versionId})))=1
+  </select>
+  <delete id="clearChunks">DELETE FROM knowledge_chunks WHERE tenant_id=#{tenantId} AND version_id=#{versionId}</delete>
+  <insert id="insertChunks">
+    INSERT INTO knowledge_chunks(tenant_id,document_id,version_id,execution_version,ordinal,page,text) VALUES
+    <foreach collection="chunks" item="chunk" index="ordinal" separator=",">(#{tenantId},#{documentId},#{versionId},#{executionVersion},#{ordinal},#{chunk.pageNumber},#{chunk.text})</foreach>
+  </insert>
+  <select id="chunks" resultType="cn.servicehub.knowledge.KnowledgeMapper$ChunkRow">SELECT id,tenant_id,document_id,version_id,execution_version,ordinal,page,text FROM knowledge_chunks WHERE tenant_id=#{tenantId} AND version_id=#{versionId} AND execution_version=#{executionVersion} ORDER BY ordinal</select>
+  <update id="versionState">UPDATE document_versions SET status=#{state},error_code=#{code} WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="ready">UPDATE document_versions SET status='ready',error_code=NULL,embedding_model=#{model},embedding_dimensions=#{dimensions},index_execution_version=#{executionVersion} WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <insert id="activate">INSERT INTO knowledge_active_versions(tenant_id,document_id,version_id) VALUES(#{tenantId},#{documentId},#{versionId}) ON DUPLICATE KEY UPDATE version_id=#{versionId}</insert>
+  <insert id="recordGeneration">INSERT IGNORE INTO knowledge_index_generations(tenant_id,version_id,execution_version,job_id) VALUES(#{tenantId},#{versionId},#{executionVersion},#{jobId})</insert>
+  <select id="collectibleGenerations" resultType="cn.servicehub.knowledge.KnowledgeMapper$GenerationRow">
+    SELECT g.tenant_id,g.version_id,g.execution_version,g.job_id FROM knowledge_index_generations g
+      JOIN jobs j ON j.tenant_id=g.tenant_id AND j.id=g.job_id
+    WHERE g.last_cleanup_at&lt;UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE
+      AND (g.execution_version&lt;j.execution_version OR j.state IN ('FAILED','CANCELLED','TIMED_OUT'))
+      AND NOT EXISTS (SELECT 1 FROM document_versions v JOIN knowledge_active_versions a ON a.tenant_id=v.tenant_id AND a.version_id=v.id
+        WHERE v.tenant_id=g.tenant_id AND v.id=g.version_id AND v.index_execution_version=g.execution_version)
+    ORDER BY g.last_cleanup_at,g.tenant_id,g.version_id,g.execution_version LIMIT 100
+  </select>
+  <delete id="removeGenerationChunks">DELETE FROM knowledge_chunks WHERE tenant_id=#{tenantId} AND version_id=#{versionId} AND execution_version=#{executionVersion}</delete>
+  <update id="cleaned">UPDATE knowledge_index_generations SET last_cleanup_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND version_id=#{versionId} AND execution_version=#{executionVersion}</update>
+  <select id="jobState" resultType="cn.servicehub.knowledge.KnowledgeMapper$JobState">SELECT state,error_code FROM jobs WHERE tenant_id=#{tenantId} AND id=#{jobId}</select>
+  <sql id="eligibleChunks">
+    FROM knowledge_chunks c
+      JOIN knowledge_documents d ON d.tenant_id=c.tenant_id AND d.id=c.document_id
+      JOIN knowledge_active_versions a ON a.tenant_id=c.tenant_id AND a.document_id=c.document_id AND a.version_id=c.version_id
+      JOIN document_versions v ON v.tenant_id=c.tenant_id AND v.id=c.version_id
+    WHERE c.tenant_id=#{tenantId} AND d.enabled=1 AND d.deleted=0 AND v.status='ready'
+      AND c.execution_version=v.index_execution_version
+  </sql>
+  <select id="activeGenerations" resultType="cn.servicehub.knowledge.KnowledgeMapper$ActiveGeneration">
+    SELECT v.id AS version_id,v.index_execution_version AS execution_version,v.embedding_model AS model,v.embedding_dimensions AS dimensions
+    FROM knowledge_active_versions a JOIN knowledge_documents d ON d.tenant_id=a.tenant_id AND d.id=a.document_id
+      JOIN document_versions v ON v.tenant_id=a.tenant_id AND v.id=a.version_id
+    WHERE a.tenant_id=#{tenantId} AND d.enabled=1 AND d.deleted=0 AND v.status='ready' AND v.index_execution_version IS NOT NULL ORDER BY v.id
+  </select>
+  <select id="keywordFulltext" resultType="long">
+    SELECT c.id <include refid="eligibleChunks"/> AND MATCH(c.text) AGAINST(#{query} IN NATURAL LANGUAGE MODE)&gt;0
+    ORDER BY MATCH(c.text) AGAINST(#{query} IN NATURAL LANGUAGE MODE) DESC,c.id LIMIT #{limit}
+  </select>
+  <select id="keywordFallback" resultType="long">
+    SELECT c.id <include refid="eligibleChunks"/> AND
+    <foreach collection="patterns" item="pattern" open="(" close=")" separator=" OR ">c.text LIKE #{pattern} ESCAPE '/'</foreach>
+    ORDER BY c.id LIMIT #{limit}
+  </select>
+  <select id="currentEvidence" resultType="cn.servicehub.knowledge.KnowledgeMapper$EvidenceRow">
+    SELECT c.document_id,c.version_id,c.id AS chunk_id,v.filename,c.page,c.text,c.execution_version,d.title
+    <include refid="eligibleChunks"/> AND c.id IN <foreach collection="ids" item="id" open="(" close=")" separator=",">#{id}</foreach>
+  </select>
+  <select id="versionById" resultType="cn.servicehub.knowledge.KnowledgeMapper$VersionRow">SELECT <include refid="versionFields"/> FROM document_versions WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+  <select id="citedInConversation" resultType="int">
+    SELECT COUNT(*) FROM messages m WHERE m.tenant_id=#{tenantId} AND m.conversation_id=#{conversationId} AND m.author_role='ai'
+      AND JSON_CONTAINS(m.citations,JSON_ARRAY(JSON_OBJECT('version_id',#{versionId})))=1
+  </select>
+</mapper>

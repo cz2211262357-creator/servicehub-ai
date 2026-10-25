@@ -555,6 +555,54 @@ export interface paths {
         patch: operations["transition_api_v1_after_sales__ticket_id__status_patch"];
         trace?: never;
     };
+    "/api/v1/conversations/{conversation_id}/interrupt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["interruptConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listConversationTopics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}/topics/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["switchConversationTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -576,6 +624,7 @@ export interface components {
             generation_epoch: number;
             /** Attempts */
             attempts: number;
+            execution_version?: number;
         };
         /** AuditDTO */
         AuditDTO: {
@@ -684,6 +733,7 @@ export interface components {
              */
             updated_at: string;
             ai_reply?: components["schemas"]["AIReplyDTO"] | null;
+            active_topic_id?: number | null;
         };
         /** ConversationInput */
         ConversationInput: {
@@ -799,6 +849,10 @@ export interface components {
             available_at: string;
             /** Finished At */
             finished_at: string | null;
+            manual_retries?: number;
+            lifetime_attempts?: number;
+            budget_revision?: number;
+            deadline_at?: string | null;
         };
         /** JobPage */
         JobPage: {
@@ -821,6 +875,9 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+            topic_id?: number | null;
+            run_id?: number | null;
+            execution_version?: number | null;
         };
         /** LoginInput */
         LoginInput: {
@@ -901,6 +958,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            topic_id?: number | null;
+            routing_state?: string;
+            context_status?: string;
+            accepted_generation_epoch?: number;
+            trigger_run_id?: number | null;
+            trigger_job_id?: number | null;
         };
         /** MessageInput */
         MessageInput: {
@@ -1025,6 +1088,9 @@ export interface components {
             max_upload_bytes: number;
             /** Automatic Retries */
             automatic_retries: number;
+            dependencies?: {
+                [key: string]: "ok" | "unavailable";
+            };
         };
         /** SessionDTO */
         SessionDTO: {
@@ -1188,6 +1254,28 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        TopicDTO: {
+            id: number;
+            title: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED" | "COMPLETED";
+            /** Format: date-time */
+            last_activity_at: string;
+        };
+        TopicPage: {
+            items: components["schemas"]["TopicDTO"][];
+            active_topic_id: number | null;
+        };
+        InterruptInput: {
+            expected_generation_epoch: number;
+        };
+        TopicSwitchInput: {
+            /** @enum {string} */
+            mode: "NEW" | "RESUME";
+            topic_id?: number;
+            expected_generation_epoch: number;
+            pending_message_id?: number;
         };
     };
     responses: never;
@@ -2384,6 +2472,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    interruptConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterruptInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDTO"];
+                };
+            };
+        };
+    };
+    listConversationTopics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicPage"];
+                };
+            };
+        };
+    };
+    switchConversationTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicSwitchInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDTO"];
                 };
             };
         };

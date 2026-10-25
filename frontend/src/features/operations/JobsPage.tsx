@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { api, post } from "../../api/client";
+import { ApiError, api, post } from "../../api/client";
 import type { Schemas } from "../../api/client";
 import { useAuth } from "../../app/AuthProvider";
 import {
@@ -35,6 +35,7 @@ export function JobsPage() {
       await post("/admin/jobs/" + id + "/retry");
       void query.refetch();
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409) await query.refetch();
       setError(e);
     }
   }
@@ -43,7 +44,7 @@ export function JobsPage() {
       <PageTitle
         eyebrow="BACKGROUND TASKS"
         title="任务中心"
-        description="查看模型回复、知识索引与后台恢复任务。仅最终失败任务可手动重试。"
+        description="查看模型回复、知识索引与后台恢复任务。仅仍有效的失败任务可手动重试。"
         action={
           <button className="button" onClick={() => void query.refetch()}>
             <RefreshCw size={14} />
@@ -67,6 +68,8 @@ export function JobsPage() {
             ["running", "执行中"],
             ["retrying", "重试中"],
             ["succeeded", "成功"],
+            ["cancelled", "已取消"],
+            ["waiting_input", "待补充信息"],
           ].map(([value, label]) => (
             <option key={value} value={value}>
               {label}
@@ -115,6 +118,13 @@ export function JobsPage() {
                       {job.attempts}
                       <span className="table-subtitle">
                         执行版本 {job.execution_version}
+                      </span>
+                      <span className="table-subtitle">
+                        {"累计 " +
+                          (job.lifetime_attempts ?? job.attempts) +
+                          " 次 · 人工重试 " +
+                          (job.manual_retries ?? 0) +
+                          " 次"}
                       </span>
                     </td>
                     <td>{job.error_code || "—"}</td>

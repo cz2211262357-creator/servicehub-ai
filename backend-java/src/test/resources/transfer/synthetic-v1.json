@@ -1,0 +1,293 @@
+{
+  "tables": {
+    "tenants": [
+      {
+        "id": 101,
+        "name": "Synthetic Transfer A",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 102,
+        "name": "Synthetic Transfer B",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "users": [
+      {
+        "id": 201,
+        "tenant_id": 101,
+        "email": "transfer-admin-a@example.com",
+        "display_name": "测试管理员A",
+        "role": "admin",
+        "password_hash": "SOURCE_ONLY_HASH_NEVER_TRANSFER",
+        "session_version": 77,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 202,
+        "tenant_id": 101,
+        "email": "transfer-customer-a@example.com",
+        "display_name": "测试客户A",
+        "role": "customer",
+        "password_hash": "SOURCE_ONLY_HASH_NEVER_TRANSFER",
+        "session_version": 77,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 203,
+        "tenant_id": 102,
+        "email": "transfer-admin-b@example.com",
+        "display_name": "测试管理员B",
+        "role": "admin",
+        "password_hash": "SOURCE_ONLY_HASH_NEVER_TRANSFER",
+        "session_version": 77,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 204,
+        "tenant_id": 102,
+        "email": "transfer-customer-b@example.com",
+        "display_name": "测试客户B",
+        "role": "customer",
+        "password_hash": "SOURCE_ONLY_HASH_NEVER_TRANSFER",
+        "session_version": 77,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "conversations": [
+      {
+        "id": 301,
+        "tenant_id": 101,
+        "customer_id": 202,
+        "title": "迁移售后A",
+        "generation_epoch": 7,
+        "last_event_seq": 1,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 302,
+        "tenant_id": 102,
+        "customer_id": 204,
+        "title": "迁移售后B",
+        "status": "CLOSED",
+        "generation_epoch": 4,
+        "last_event_seq": 0,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "orders": [
+      {
+        "id": 401,
+        "tenant_id": 101,
+        "customer_id": 202,
+        "order_number": "ORD-TRANSFER-A",
+        "total_amount": "12.30",
+        "currency": "CNY",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 402,
+        "tenant_id": 102,
+        "customer_id": 204,
+        "order_number": "ORD-TRANSFER-B",
+        "total_amount": "99.99",
+        "currency": "CNY",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "order_items": [
+      {
+        "id": 501,
+        "tenant_id": 101,
+        "order_id": 401,
+        "product_name": "合成商品A",
+        "sku": "SYN-A",
+        "quantity": 1,
+        "unit_price": "12.30",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 502,
+        "tenant_id": 102,
+        "order_id": 402,
+        "product_name": "合成商品B",
+        "sku": "SYN-B",
+        "quantity": 1,
+        "unit_price": "99.99",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "ticket_drafts": [
+      {
+        "id": 601,
+        "tenant_id": 101,
+        "customer_id": 202,
+        "order_id": 401,
+        "kind": "RETURN",
+        "reason": "合成退货原因",
+        "version": 1,
+        "expires_at": "2027-01-01T00:00:00Z",
+        "consumed": true,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 602,
+        "tenant_id": 102,
+        "customer_id": 204,
+        "order_id": 402,
+        "kind": "RETURN",
+        "reason": "旧未确认草稿",
+        "version": 1,
+        "expires_at": "2027-01-01T00:00:00Z",
+        "consumed": false,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "after_sale_tickets": [
+      {
+        "id": 701,
+        "tenant_id": 101,
+        "draft_id": 601,
+        "customer_id": 202,
+        "order_id": 401,
+        "kind": "RETURN",
+        "reason": "合成退货原因",
+        "idempotency_key": "transfer-confirmed",
+        "request_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "ticket_events": [
+      {
+        "id": 702,
+        "tenant_id": 101,
+        "ticket_id": 701,
+        "actor_id": 202,
+        "to_status": "SUBMITTED",
+        "note": "合成历史确认",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "knowledge_documents": [
+      {
+        "id": 801,
+        "tenant_id": 101,
+        "title": "迁移政策A",
+        "uploaded_by": 201,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 802,
+        "tenant_id": 102,
+        "title": "迁移政策B",
+        "uploaded_by": 203,
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "document_versions": [
+      {
+        "id": 901,
+        "tenant_id": 101,
+        "document_id": 801,
+        "number": 1,
+        "storage_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt",
+        "filename": "政策A.txt",
+        "media_type": "text/plain",
+        "status": "ready",
+        "size_bytes": 1,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 902,
+        "tenant_id": 102,
+        "document_id": 802,
+        "number": 1,
+        "storage_key": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.md",
+        "filename": "政策B.md",
+        "media_type": "text/markdown",
+        "status": "ready",
+        "size_bytes": 1,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "conversation_events": [
+      {
+        "id": 1001,
+        "tenant_id": 101,
+        "conversation_id": 301,
+        "seq": 1,
+        "kind": "message.created",
+        "generation_epoch": 7,
+        "payload": {},
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "jobs": [
+      {
+        "id": 1101,
+        "tenant_id": 101,
+        "kind": "ai_reply",
+        "business_key": "legacy-never-restart",
+        "payload": {
+          "conversation_id": 301
+        },
+        "state": "running",
+        "execution_version": 5,
+        "owner": "old-worker",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ],
+    "ai_runs": [
+      {
+        "id": 1102,
+        "tenant_id": 101,
+        "conversation_id": 301,
+        "trigger_event_seq": 1,
+        "job_id": 1101,
+        "generation_epoch": 7,
+        "provider": "bailian",
+        "model": "old-model",
+        "created_at": "2026-01-02T03:04:05.123456Z",
+        "state": "running"
+      }
+    ],
+    "messages": [
+      {
+        "id": 1201,
+        "tenant_id": 101,
+        "conversation_id": 301,
+        "sender_id": 202,
+        "author_role": "customer",
+        "client_message_id": "transfer-message-a",
+        "body": "合成用户问题A",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 1202,
+        "tenant_id": 101,
+        "conversation_id": 301,
+        "author_role": "ai",
+        "ai_run_id": 1102,
+        "body": "旧回答仅供历史展示",
+        "citations": [],
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      },
+      {
+        "id": 1203,
+        "tenant_id": 102,
+        "conversation_id": 302,
+        "sender_id": 204,
+        "author_role": "customer",
+        "client_message_id": "transfer-message-b",
+        "body": "合成用户问题B",
+        "created_at": "2026-01-02T03:04:05.123456Z"
+      }
+    ]
+  },
+  "files": {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt": "合成政策A：收到商品后七天内可申请退货。\n",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.md": "# 合成政策B\n仅属于租户B，不得跨租户读取。\n"
+  }
+}

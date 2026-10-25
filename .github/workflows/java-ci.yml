@@ -1,0 +1,80 @@
+name: Java platform verification
+on:
+  push:
+  pull_request:
+jobs:
+  java:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.16"
+          enable-cache: false
+      - name: Keep managed tools and caches inside workspace
+        run: |
+          mkdir -p .tools .cache/java-tmp .cache/java-verification
+          cp -aL "$JAVA_HOME" .tools/jdk21
+          echo "JAVA_HOME=$GITHUB_WORKSPACE/.tools/jdk21" >> "$GITHUB_ENV"
+          echo "SERVICEHUB_WORKSPACE_ROOT=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          echo "UV_CACHE_DIR=$GITHUB_WORKSPACE/.cache/uv" >> "$GITHUB_ENV"
+          echo "UV_PYTHON_INSTALL_DIR=$GITHUB_WORKSPACE/.python" >> "$GITHUB_ENV"
+      - run: uv sync --all-groups --frozen
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cache/m2
+            .cache/maven
+          key: java21-${{ runner.os }}-${{ hashFiles('backend-java/pom.xml','backend-java/.mvn/wrapper/maven-wrapper.properties') }}
+      - name: Private test Compose credentials
+        run: |
+          .venv/bin/python -B - <<'PY'
+          from pathlib import Path
+          import uuid
+          names=("DB_PASSWORD","MYSQL_ROOT_PASSWORD","REDIS_PASSWORD","RABBIT_PASSWORD","RABBIT_COOKIE")
+          Path(".env.java").write_text("".join(f"SERVICEHUB_JAVA_{name}={uuid.uuid4().hex}\n" for name in names),encoding="utf-8")
+          PY
+      - name: All unit, contract, real Docker and multi-process acceptance tests
+        run: |
+          source scripts/java-env.sh "$GITHUB_WORKSPACE"
+          bash backend-java/mvnw -B -ntp -f backend-java/pom.xml verify
+      - name: Retain test diagnostics without private settings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: |
+            backend-java/target/surefire-reports/*.txt
+            backend-java/target/failsafe-reports/*.txt
+          retention-days: 7
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/export-java-contract.py
+      - run: npm --prefix frontend ci --cache "$GITHUB_WORKSPACE/.cache/npm"
+      - run: npm --prefix frontend run generate:api
+      - run: git diff --exit-code -- frontend/src/api/generated/schema.d.ts
+      - run: npm --prefix frontend run typecheck
+      - run: npm --prefix frontend test -- --run
+      - run: npm --prefix frontend run build
+  images:
+    needs: [java, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f backend-java/Dockerfile -t servicehub-java-api:ci .
+      - run: docker build -f deploy/java-web.Dockerfile -t servicehub-java-web:ci .

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.servicehub.conversations.TopicMapper">
+  <sql id="fields">id,title,summary,CAST(facts AS CHAR CHARACTER SET utf8mb4) AS factsText,last_activity_at</sql>
+  <sql id="runFields">id,conversation_id,topic_id,generation_epoch,job_id,state,auth_version,budget_revision,CAST(business_scope AS CHAR CHARACTER SET utf8mb4) AS scopeText,input_expires_at</sql>
+  <select id="list" resultType="cn.servicehub.conversations.TopicMapper$TopicRow">SELECT <include refid="fields"/> FROM conversation_topics WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} ORDER BY last_activity_at DESC,id DESC LIMIT 100</select>
+  <select id="topic" resultType="cn.servicehub.conversations.TopicMapper$TopicRow">SELECT <include refid="fields"/> FROM conversation_topics WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND id=#{id}</select>
+  <select id="receipt" resultType="string">SELECT CAST(result_snapshot AS CHAR CHARACTER SET utf8mb4) FROM conversation_interruptions WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND actor_id=#{actorId} AND target_epoch=#{epoch}</select>
+  <insert id="receiptInsert">INSERT INTO conversation_interruptions(tenant_id,conversation_id,actor_id,target_epoch,result_epoch,result_snapshot) VALUES(#{tenantId},#{conversationId},#{actorId},#{epoch},#{resultEpoch},CAST(#{snapshot} AS JSON))</insert>
+  <select id="run" resultType="cn.servicehub.conversations.TopicMapper$RunRow">SELECT <include refid="runFields"/> FROM ai_runs WHERE tenant_id=#{tenantId} AND id=#{id}</select>
+  <select id="lockRun" resultType="cn.servicehub.conversations.TopicMapper$RunRow">SELECT <include refid="runFields"/> FROM ai_runs WHERE tenant_id=#{tenantId} AND job_id=#{jobId} FOR UPDATE</select>
+  <select id="latestPending" resultType="long">SELECT m.id FROM messages m JOIN ai_runs r ON r.tenant_id=m.tenant_id AND r.id=m.context_run_id WHERE m.tenant_id=#{tenantId} AND m.conversation_id=#{conversationId} AND m.author_role='customer' AND m.routing_state='PENDING' AND m.context_status='ELIGIBLE' AND r.state IN('QUEUED','RUNNING','WAITING_INPUT') AND (r.input_expires_at IS NULL OR r.input_expires_at&gt;UTC_TIMESTAMP(6)) ORDER BY m.id DESC LIMIT 1 FOR UPDATE</select>
+  <update id="resolveMessage">UPDATE messages SET topic_id=#{topicId},routing_state='RESOLVED',context_status='ELIGIBLE',context_run_id=#{runId} WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND id=#{messageId}</update>
+  <update id="resolveRun">UPDATE ai_runs SET topic_id=#{topicId},business_scope=CAST(#{scope} AS JSON) WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="waiting">UPDATE ai_runs SET input_expires_at=UTC_TIMESTAMP(6)+INTERVAL 24 HOUR,business_scope=JSON_SET(business_scope,'$.route','AMBIGUOUS') WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="touch">UPDATE conversation_topics SET last_activity_at=UTC_TIMESTAMP(6) WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="clearFacts">UPDATE conversation_topics SET facts=JSON_OBJECT(),summary=NULL WHERE tenant_id=#{tenantId} AND id=#{id}</update>
+  <update id="supersedeContext">UPDATE messages SET context_status='SUPERSEDED' WHERE tenant_id=#{tenantId} AND conversation_id=#{conversationId} AND topic_id=#{topicId} AND id&lt;#{messageId}</update>
+  <select id="context" resultType="cn.servicehub.conversations.TopicMapper$ContextRow">
+    SELECT m.id,m.author_role,m.body,CAST(m.citations AS CHAR CHARACTER SET utf8mb4) AS citationsText
+    FROM messages m LEFT JOIN ai_runs a ON a.tenant_id=m.tenant_id AND a.id=m.ai_run_id
+      LEFT JOIN ai_runs r ON r.tenant_id=m.tenant_id AND r.id=m.context_run_id
+    WHERE m.tenant_id=#{tenantId} AND m.conversation_id=#{conversationId} AND m.topic_id=#{topicId}
+      AND m.routing_state='RESOLVED' AND m.context_status='ELIGIBLE'
+      AND ((m.author_role IN('customer','agent') AND (r.id IS NULL OR r.state NOT IN('CANCELLED','SUPERSEDED','FAILED','TIMED_OUT','EXPIRED')))
+        OR (m.author_role='ai' AND a.state='SUCCEEDED'))
+    ORDER BY m.id DESC LIMIT #{limit}
+  </select>
+</mapper>

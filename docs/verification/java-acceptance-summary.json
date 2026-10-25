@@ -1,0 +1,245 @@
+{
+  "verification_date": "2026-10-25",
+  "source_base_commit": "54bf29042265f2c64b2bf27fdc0e29652545337f",
+  "working_tree_dirty_during_measurement": true,
+  "frozen_openapi_sha256": "1a66dbcdce53dfed0af857486aa1a6f58c01d6c6f1c434b81d473ad57fa37b17",
+  "offline": {
+    "combined_unit_tests": 2,
+    "combined_integration_tests": 131,
+    "combined_failures": 0,
+    "combined_errors": 0,
+    "combined_skips": 0,
+    "subsequent_provider_unit_tests": 34,
+    "subsequent_provider_integrations": 23,
+    "full_native_gate": {
+      "passed": true,
+      "source_commit": "b4505316a1f40f7f7354c37ba3e9e8c60218c229",
+      "unit_tests": 34,
+      "integration_tests": 299,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "finished_at": "2026-10-25T16:09:25+08:00"
+    },
+    "github_ci": "pending",
+    "additional_json_contracts": 8,
+    "additional_json_contracts_passed": 8,
+    "topic_classifier_regression": 6,
+    "transfer_acceptance": {
+      "passed": true,
+      "integration_tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "finished_at": "2026-10-25T17:06:21+08:00",
+      "source_working_tree_dirty": true
+    },
+    "review_regressions": {
+      "passed": true,
+      "unit_tests": 34,
+      "integration_tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "finished_at": "2026-10-25T16:58:42+08:00",
+      "scope": "Affected regression slice, including authorized positive controls; do not add overlapping slices as full-suite counts."
+    },
+    "merchant_order_regression": {
+      "passed": true,
+      "unit_tests": 35,
+      "integration_tests": 8,
+      "finished_at": "2026-10-25T17:21:21+08:00"
+    },
+    "compose_startup_regression": {
+      "passed": true,
+      "unit_tests": 35,
+      "integration_tests": 1,
+      "finished_at": "2026-10-25T17:38:02+08:00"
+    }
+  },
+  "online": {
+    "passed": true,
+    "provider": "bailian",
+    "actual_response_models": {
+      "embedding": "text-embedding-v4",
+      "chat": "qwen-plus"
+    },
+    "vector_inspection": {
+      "finite_float32": true,
+      "actual_dimensions": 1024,
+      "vectors_inspected": 1
+    },
+    "completed_requests": [
+      {
+        "run_id": 1,
+        "queue_ms": 259,
+        "completion_ms": 3580.5128,
+        "first_delta_ms": null,
+        "actual_usage_or_null": {
+          "total_tokens": 659,
+          "prompt_tokens": 611,
+          "completion_tokens": 48
+        }
+      },
+      {
+        "run_id": 2,
+        "queue_ms": 172,
+        "completion_ms": 3691.3097,
+        "first_delta_ms": null,
+        "actual_usage_or_null": {
+          "total_tokens": 1637,
+          "prompt_tokens": 1565,
+          "completion_tokens": 72
+        }
+      },
+      {
+        "run_id": 3,
+        "queue_ms": 198,
+        "completion_ms": 5989.7484,
+        "first_delta_ms": null,
+        "actual_usage_or_null": {
+          "total_tokens": 1913,
+          "prompt_tokens": 1739,
+          "completion_tokens": 174
+        }
+      }
+    ],
+    "routing_samples": 15,
+    "routing_samples_passed": 15,
+    "classification_requests": 3,
+    "product_jar_sha256": "fb362b4d5f8c2c06461feeaa747fd72ec8ac6da227420b7ad0458a46e258f0ba"
+  },
+  "stream_interruptions": {
+    "new_message_interrupts_stream": {
+      "old_run_id": 4,
+      "local_cancel_ms": 132.4307,
+      "first_delta_ms": 1095.4591,
+      "old_epoch": 1,
+      "persisted_old_result_count": 0
+    },
+    "explicit_stop_interrupts_stream": {
+      "old_run_id": 6,
+      "local_cancel_ms": 79.9709,
+      "first_delta_ms": 1031.6143,
+      "old_epoch": 1,
+      "persisted_old_result_count": 0
+    },
+    "topic_a_b_a_discards_old_output": {
+      "old_run_id": 7,
+      "local_cancel_ms": 165.2863,
+      "first_delta_ms": 867.1948,
+      "old_epoch": 1,
+      "persisted_old_result_count": 0
+    }
+  },
+  "ordinary_http_benchmark": {
+    "passed": true,
+    "java": "21.0.12.1",
+    "os": "Windows 11",
+    "cpu_count": 32,
+    "stages": [
+      {
+        "requests": 100,
+        "requests_per_second": 55.87572032883308,
+        "maximum_ms": 298.6583,
+        "p50_ms": 14.0417,
+        "concurrency": 1,
+        "elapsed_seconds": 1.7896861,
+        "errors": 0,
+        "p95_ms": 18.6335,
+        "p99_ms": 73.4486
+      },
+      {
+        "requests": 100,
+        "requests_per_second": 486.8795693647585,
+        "maximum_ms": 36.9238,
+        "p50_ms": 15.3648,
+        "concurrency": 10,
+        "elapsed_seconds": 0.2053896,
+        "errors": 0,
+        "p95_ms": 35.0321,
+        "p99_ms": 36.2771
+      },
+      {
+        "requests": 100,
+        "requests_per_second": 917.2233448016825,
+        "maximum_ms": 37.937,
+        "p50_ms": 19.318,
+        "concurrency": 20,
+        "elapsed_seconds": 0.1090247,
+        "errors": 0,
+        "p95_ms": 25.0469,
+        "p99_ms": 31.2075
+      }
+    ],
+    "scope": "Local synthetic-data HTTP measurements; model latency and production capacity are not inferred from these values."
+  },
+  "limits": [
+    "Local synthetic business data and small development samples; no production SLA, throughput capacity, general intent accuracy or supplier-side cancellation guarantee is claimed.",
+    "Keys, session cookies, credentials, private provider endpoints and absolute user paths are omitted.",
+    "The full native gate records its original tested commit; later repair slices overlap and are listed separately. The current full public CI is pending."
+  ],
+  "frontend": {
+    "tests": 38,
+    "passed": true,
+    "typecheck": true,
+    "production_build": true
+  },
+  "delivery": {
+    "deployment_passed": true,
+    "finished_at": "2026-10-25T17:40:23+0800",
+    "login_checks": 10,
+    "roles": {
+      "admin": 2,
+      "agent": 4,
+      "customer": 4
+    },
+    "reindexed_public_fixture_documents": 2,
+    "workflow": {
+      "cited_answer": true,
+      "order_answer": true,
+      "pronoun_followup_draft": true,
+      "formal_confirmation_not_performed": true
+    },
+    "source_database_preserved": true,
+    "formal_tickets_not_increased": true,
+    "runtime": {
+      "mysql": {
+        "state": "running",
+        "docker_health": "healthy",
+        "image_config_id": "sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364"
+      },
+      "redis": {
+        "state": "running",
+        "docker_health": "healthy",
+        "image_config_id": "sha256:43afe4a9a43080e64dfa29699eef903fc9d54991fe8b03d57237c05bed2a396c"
+      },
+      "rabbitmq": {
+        "state": "running",
+        "docker_health": "healthy",
+        "image_config_id": "sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58"
+      },
+      "api": {
+        "state": "running",
+        "docker_health": "not_configured",
+        "image_config_id": "sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589"
+      },
+      "worker": {
+        "state": "running",
+        "docker_health": "not_configured",
+        "image_config_id": "sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589"
+      },
+      "web": {
+        "state": "running",
+        "docker_health": "healthy",
+        "image_config_id": "sha256:5efca6e5d75cf6c28164ffa21fdfa5812be690b295a645a55ebfd21ecfeb19af"
+      }
+    },
+    "review": {
+      "critical_remaining": 0,
+      "important_remaining": 0,
+      "passed": true
+    },
+    "public_ci": "pending"
+  }
+}
