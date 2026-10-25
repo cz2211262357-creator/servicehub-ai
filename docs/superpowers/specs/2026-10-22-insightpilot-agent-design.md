@@ -59,7 +59,7 @@ MCP 数据服务提供以下最小能力：
 
 业务数据按两个租户构造，用于验证跨租户隔离；提供按固定种子生成的可重复数据和金标准 SQL。可选导入 ServiceHub 的显式导出文件，不直接访问它的运行库，也不要求共享数据库账户。
 
-业务查询账号只拥有白名单分析视图的 SELECT 权限，不能写业务表或访问系统敏感信息。它不是表所有者，且无超级用户或 BYPASSRLS 权限；视图使用 security_invoker，底层表强制行级权限。每次查询由网关在事务内注入可信租户上下文，事务结束后自动清理，避免连接池串租户。状态存储与 checkpoint 使用单独账户和 schema，模型无法调用这些连接。
+业务查询账号对外仅能查询白名单分析视图，不能写业务表或访问系统敏感信息。security_invoker要求调用角色具有底表SELECT，因此将底表置于business_private，授予必要SELECT但不给该schema的USAGE，仅开放analysis视图schema；这一实际授权边界已纳入用户2026-10-25审阅通过的实施计划，并以真实角色直接访问底表失败的测试验证。它不是表所有者，且无超级用户或 BYPASSRLS 权限；视图使用 security_invoker，底层表强制行级权限。每次查询由网关在事务内注入可信租户上下文，事务结束后自动清理，避免连接池串租户。状态存储与 checkpoint 使用单独账户和 schema，模型无法调用这些连接。
 
 只允许单条只读 SELECT，CTE 也需递归检查。拒绝写操作、SELECT INTO、锁定读取、COPY、外部连接、危险函数、多语句及非白名单表列。函数按白名单开放 COUNT、SUM、AVG、MIN、MAX、DATE_TRUNC、COALESCE、NULLIF、ROUND 等必要能力；拒绝 set_config、pg_sleep、文件/网络及用户自定义函数。数据库只读事务与 statement_timeout 再次约束执行。
 
@@ -103,5 +103,5 @@ MCP 数据服务提供以下最小能力：
 - [x] 明确与客服项目的能力分工。
 - [x] 写出独立项目范围、工具与验收设计并自查。
 - [x] 用户审阅书面设计，按推荐方案推进。
-- [ ] Java 主线完成后编写并审阅 Agent 实施计划。
+- [x] 已编写并自查[Agent实施计划](../plans/2026-10-25-insightpilot-agent-implementation.md)，用户2026-10-25审阅同意；代码仍按先Java后Agent顺序。
 - [ ] 实现、真实模型评测、发布及简历更新。

@@ -4,16 +4,17 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 完整原生回归 | b450531，34单元+299集成，失败/错误/跳过0；2026-10-25 16:09结束 |
+| 最新完整公开CI | [7b0c470 / 运行40194564025](https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025)：35单元+320集成=355，失败/错误/跳过0；前端38项、类型/构建、两个镜像均通过 |
+| 历史本机完整回归 | b450531，34单元+299集成，失败/错误/跳过0；2026-10-25 16:09结束 |
 | 原接口与扩展 | 39旧HTTP逐项对照，3新增HTTP与WebSocket另行验证；冻结基线SHA未修改 |
 | 两租户移交 | DataTransferIT8项通过（含真实COMMIT回执丢失与提交后任务取消），实际MySQL、私有文件、金额/UTC、故障命中回滚、新凭证与空库初始化 |
 | 真实模型 | qwen-plus / text-embedding-v4；PDF、引用、订单、草稿、客户确认、人工回复、三类流式打断通过 |
 | 前端 | 38项测试、类型检查和生产构建通过；生成契约由公开CI再次核对 |
-| 镜像 | Java API与React/Nginx真实构建通过；运行中API与Worker配置摘要sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589 |
+| 镜像 | Java API与React/Nginx真实构建通过；运行中API与Worker容器引用的镜像标识sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589 |
 | 干净部署 | 六服务启动并经实际流程验证、10账号登录、两文档重索引、真实引用/查订单/多轮草稿通过；旧库保留 |
-| 整分支审查 | 七项重要问题与补充边界已关闭，最终定向复核无剩余Critical/Important；远程全套CI待修正后重跑 |
-| 公开GitHub版本与CI | 已发布5a18a39；首次完整CI的35单元通过、319集成中1项失败（Quorum缓存计数观测）；修正后等待新完整CI |
-| 简历 | 已准备两页草稿，原证件照字节保持；待交付完成后定稿 |
+| 整分支审查 | 七项重要问题与补充边界已关闭，最终定向复核无剩余Critical/Important；修正后完整公开CI通过 |
+| 公开GitHub版本与CI | [公开源码7b0c470](https://github.com/cz2211262357-creator/servicehub-ai/tree/7b0c470580ada0dfabd4b9583f167210d4683554)；[完整CI全部通过](https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025) |
+| 简历 | 已更新原文件并备份旧版；两页实际渲染核对，原证件照字节保持；个人简历未发布到源码仓库 |
 
 本机普通HTTP小样本测量与真实模型时延分开，见[java-acceptance.md](java-acceptance.md)和[机器汇总](java-acceptance-summary.json)。不声明生产QPS、SLA、通用意图准确率或供应商端已停止计费。
 
@@ -25,10 +26,14 @@ SQL导入失败整笔回滚，并只清理本批拥有的提升文件。发送CO
 
 所有真实业务资料、移交包、凭证、原始报告与测试临时文件位于忽略目录。公开仓库只沿用原公开Git历史制作干净源码快照，不推送私有开发历史或个人简历。
 
-审查后定向回归34单元+46集成通过；最终移交8项、普通商家订单工具8项及Compose Redis启动另行通过。重叠切片不累加为完整测试数量。最新完整数量以公开CI结果为准。
+审查后定向回归34单元+46集成通过；最终移交8项、普通商家订单工具8项及Compose Redis启动另行通过。重叠切片不累加为完整测试数量。最新完整数量为本页记录的公开CI355项，不是切片相加。
 
 ## 公开 CI 的故障观测修正
 
-首次公开CI运行40182144147实际执行35单元和319集成，集成有1项失败、无错误或跳过。失败来自数据库暂停后1.2秒读取Quorum队列缓存统计；锁定RabbitMQ4.3.6源码中的queue_coarse_metrics由5秒tick更新，不能作为该时点的未ack证明。新增BrokerObservationIT在独立broker将quorum_tick_interval设为60秒，真实手动投递后缓存仍0，旧观测方法已观察到RED。改为实时通道messages_unacknowledged后，新用例与原数据库故障场景均通过（35单元+2集成，2026-10-25 20:40:49）；并实际确认MySQL处于paused。生产ack/重试/deadline未修改，不能以此定向回归代替新完整CI。
+首次公开CI运行40182144147实际执行35单元和319集成，集成有1项失败、无错误或跳过。失败来自数据库暂停后1.2秒读取Quorum队列缓存统计；锁定RabbitMQ4.3.6源码中的queue_coarse_metrics由5秒tick更新，不能作为该时点的未ack证明。新增BrokerObservationIT在独立broker将quorum_tick_interval设为60秒，真实手动投递后缓存仍0，旧观测方法已观察到RED。改为实时通道messages_unacknowledged后，新用例与原数据库故障场景均通过（35单元+2集成，2026-10-25 20:40:49）；并实际确认MySQL处于paused。生产ack/重试/deadline未修改，随后公开代码7b0c470的[新完整CI](https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025)通过35单元+320集成，失败/错误/跳过均0。
 
 官方实现依据：[Quorum缓存计数](https://github.com/rabbitmq/rabbitmq-server/blob/v4.3.6/deps/rabbit/src/rabbit_quorum_queue.erl)；新增用例还验证实际basic.ack后通道计数归零。
+
+## 交付状态
+
+本地Java应用与Nginx入口健康检查均200/ready；旧Python库和凭证未被改写，公开源码不包含移交资料、私有账号或个人简历。独立InsightPilot仅完成设计与实施计划审阅，本页不将其算作已实现功能。

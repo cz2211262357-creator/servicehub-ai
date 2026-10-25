@@ -21,7 +21,21 @@
       "skips": 0,
       "finished_at": "2026-10-25T16:09:25+08:00"
     },
-    "github_ci": "pending",
+    "github_ci": {
+      "passed": true,
+      "source_commit": "7b0c470580ada0dfabd4b9583f167210d4683554",
+      "run_id": 40194564025,
+      "run_url": "https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025",
+      "unit": 35,
+      "integration": 320,
+      "total": 355,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "frontend_tests": 38,
+      "images_job": "success",
+      "legacy_python_ci": "success"
+    },
     "additional_json_contracts": 8,
     "additional_json_contracts_passed": 8,
     "topic_classifier_regression": 6,
@@ -177,7 +191,7 @@
   "limits": [
     "Local synthetic business data and small development samples; no production SLA, throughput capacity, general intent accuracy or supplier-side cancellation guarantee is claimed.",
     "Keys, session cookies, credentials, private provider endpoints and absolute user paths are omitted.",
-    "The full native gate records its original tested commit; later repair slices overlap and are listed separately. The current full public CI is pending."
+    "The full native gate records its original tested commit; later repair slices overlap and are listed separately. The current full public CI passed on the explicitly recorded public code commit."
   ],
   "frontend": {
     "tests": 38,
@@ -207,32 +221,32 @@
       "mysql": {
         "state": "running",
         "docker_health": "healthy",
-        "image_config_id": "sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364"
+        "runtime_image_id": "sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364"
       },
       "redis": {
         "state": "running",
         "docker_health": "healthy",
-        "image_config_id": "sha256:43afe4a9a43080e64dfa29699eef903fc9d54991fe8b03d57237c05bed2a396c"
+        "runtime_image_id": "sha256:43afe4a9a43080e64dfa29699eef903fc9d54991fe8b03d57237c05bed2a396c"
       },
       "rabbitmq": {
         "state": "running",
         "docker_health": "healthy",
-        "image_config_id": "sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58"
+        "runtime_image_id": "sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58"
       },
       "api": {
         "state": "running",
         "docker_health": "not_configured",
-        "image_config_id": "sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589"
+        "runtime_image_id": "sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589"
       },
       "worker": {
         "state": "running",
         "docker_health": "not_configured",
-        "image_config_id": "sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589"
+        "runtime_image_id": "sha256:0df395e7a17f5070a931afb84dd2e3c8f5d3e4a6674569db7c9211e7a33c3589"
       },
       "web": {
         "state": "running",
         "docker_health": "healthy",
-        "image_config_id": "sha256:5efca6e5d75cf6c28164ffa21fdfa5812be690b295a645a55ebfd21ecfeb19af"
+        "runtime_image_id": "sha256:5efca6e5d75cf6c28164ffa21fdfa5812be690b295a645a55ebfd21ecfeb19af"
       }
     },
     "review": {
@@ -241,23 +255,28 @@
       "passed": true
     },
     "public_ci": {
-      "status": "awaiting_full_rerun",
-      "previous_run": 40182144147,
-      "previous_commit": "5a18a3905eb7b58b17f4b64ddd47f3dec421ce4f",
+      "passed": true,
+      "source_commit": "7b0c470580ada0dfabd4b9583f167210d4683554",
+      "run_id": 40194564025,
+      "run_url": "https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025",
       "unit": 35,
-      "integration": 319,
-      "integration_failures": 1,
+      "integration": 320,
+      "total": 355,
+      "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "cause": "Quorum queue cached metrics were used for immediate manual-ack observation",
-      "repair_regression": {
-        "unit": 35,
-        "integration": 2,
-        "failures": 0,
-        "errors": 0,
-        "skipped": 0,
-        "finished_at": "2026-10-25T20:40:49+08:00"
-      }
+      "frontend_tests": 38,
+      "images_job": "success",
+      "legacy_python_ci": "success",
+      "previous_failed_run": 40182144147,
+      "previous_failure_resolved": true
+    },
+    "resume": {
+      "updated": true,
+      "visual_qa_pages": 2,
+      "portrait_bytes_unchanged": true,
+      "original_backup_preserved": true,
+      "personal_document_not_published": true
     }
   }
 }

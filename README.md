@@ -93,6 +93,8 @@ Web 为 http://localhost:8081，API 为 http://127.0.0.1:8001。所有 Compose �
 
 ## 验证与测量
 
+2026-10-25，[公开代码7b0c470的完整CI](https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025)通过355项Java测试（35单元、320集成，失败/错误/跳过0）、38项前端测试、类型检查、生产构建及两个容器镜像构建。
+
 最终计数和版本以 [Java 验收记录](docs/verification/java-acceptance.md) 及 [交付证据](docs/verification/java-delivery-evidence.md) 为准。普通回归使用真实临时 MySQL/Redis/RabbitMQ，供应商异常通过受控网络服务注入；真实百炼验收为显式独立入口。
 
 - 原39个HTTP接口与旧 Python 运行时逐项对照，另验证3个话题/停止扩展接口及 WebSocket；核对角色、Cookie、CSRF、权限、错误、时间与金额格式。
