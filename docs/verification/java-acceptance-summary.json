@@ -240,6 +240,24 @@
       "important_remaining": 0,
       "passed": true
     },
-    "public_ci": "pending"
+    "public_ci": {
+      "status": "awaiting_full_rerun",
+      "previous_run": 40182144147,
+      "previous_commit": "5a18a3905eb7b58b17f4b64ddd47f3dec421ce4f",
+      "unit": 35,
+      "integration": 319,
+      "integration_failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "cause": "Quorum queue cached metrics were used for immediate manual-ack observation",
+      "repair_regression": {
+        "unit": 35,
+        "integration": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "finished_at": "2026-10-25T20:40:49+08:00"
+      }
+    }
   }
 }

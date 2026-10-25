@@ -92,9 +92,12 @@ final class RecoveryScenarios {
  long dispatched(long job){return f.count("SELECT COUNT(*) FROM outbox_events WHERE job_id=? AND kind='job' AND dispatched_at IS NOT NULL",job);}
  Map<String,Object> dependencyRetry()throws Exception{
   f.startWorker();var c=f.fresh(0);String tag="DBFAULT_"+c.tenant();var gate=f.provider.gate(tag,false,1);var message=f.send(c,"db-fault","查询物流 "+tag,0);f.require(message,200);gate.await();long job=message.body().path("trigger_job_id").asLong();
-  var mysql=f.app.dependencies.mysql;int pending;
+  var mysql=f.app.dependencies.mysql;int pending;var brokerObservation=new BrokerObservation(f.app.dependencies.rabbitmq);
+  assertThat(brokerObservation.unacknowledgedDeliveries()).as("Actual provider call retains its manual delivery before the SQL fault").isPositive();
   mysql.getDockerClient().pauseContainerCmd(mysql.getContainerId()).exec();
-  try{gate.open();Thread.sleep(1200);pending=pendingMessages("shj.ai");assertThat(pending).as("Broker must retain a pending delivery while SQL disposition cannot commit").isPositive();}
+  try{assertThat(mysql.getDockerClient().inspectContainerCmd(mysql.getContainerId()).exec().getState().getPaused()).isTrue();
+   gate.open();Thread.sleep(1200);pending=brokerObservation.unacknowledgedDeliveries();
+   assertThat(pending).as("Broker channel must retain an unacknowledged delivery while SQL disposition cannot commit").isPositive();}
   finally{mysql.getDockerClient().unpauseContainerCmd(mysql.getContainerId()).exec();}
   if("RUNNING".equals(f.state(job)))f.app.db.update("UPDATE jobs SET lease_expires_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",job);
   f.until(()->"SUCCEEDED".equals(f.state(job)),20,"database recovery retains accepted work");
