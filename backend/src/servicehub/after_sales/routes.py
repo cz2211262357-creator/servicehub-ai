@@ -27,7 +27,7 @@ async def drafts(request: Request, principal: Authenticated):
 @router.post("/drafts", response_model=TicketDraftDTO, status_code=201)
 async def prepare(payload: DraftInput, request: Request, principal: Authenticated):
     return await service(request).create_draft(
-        principal, payload.order_id, payload.kind, payload.reason
+        principal, payload.order_id, payload.kind, payload.reason, payload.reason_code
     )
 
 

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from contextlib import AsyncExitStack
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -15,6 +16,7 @@ import pytest
 from servicehub.after_sales.models import AfterSaleTicket
 from servicehub.auth.models import User
 from servicehub.conversations.models import Conversation, Message
+from servicehub.db.base import utcnow
 from servicehub.jobs.models import Job
 from servicehub.jobs.persistence import enqueue_job
 from servicehub.jobs.service import JobService
@@ -83,15 +85,29 @@ async def test_http_duplicate_messages_and_ticket_confirmations_have_one_result(
                 customer_id=env.users["customer"].id,
                 order_number="HTTP-CONFIRM",
                 total_amount=Decimal("299.00"),
+                after_sale_facts={
+                    "category": "electronics",
+                    "signed_at": (utcnow() - timedelta(days=1)).isoformat(),
+                    "return_condition": "intact",
+                    "exclusion_confirmed": False,
+                    "quality_issue": True,
+                    "warranty_until": (utcnow() + timedelta(days=365)).isoformat(),
+                    "requires_manual_review": False,
+                },
             )
             session.add(order)
             await session.flush()
-        draft = (
-            await clients[0].post(
-                "/api/v1/after-sales/drafts",
-                json={"order_id": order.id, "kind": "RETURN", "reason": "商品无法启动"},
-            )
-        ).json()
+        prepared = await clients[0].post(
+            "/api/v1/after-sales/drafts",
+            json={
+                "order_id": order.id,
+                "kind": "RETURN",
+                "reason": "商品无法启动",
+                "reason_code": "QUALITY",
+            },
+        )
+        assert prepared.status_code == 201, prepared.text
+        draft = prepared.json()
         results = await asyncio.gather(
             *[
                 clients[i % 2].post(

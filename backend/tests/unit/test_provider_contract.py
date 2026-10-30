@@ -91,3 +91,79 @@ async def test_provider_failures_are_explicit_without_demo_fallback(failure):
         with pytest.raises(BusinessError) as error:
             _ = [event async for event in HTTPModelProvider(cfg, client).stream([], [], 256)]
     assert "private-provider-detail" not in error.value.message
+
+
+async def test_qwen_stream_null_name_fragments_and_null_tool_lists_are_accepted():
+    from servicehub.ai.provider import HTTPModelProvider
+
+    records = [
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call-qwen",
+                                "function": {"name": "lookup_order", "arguments": ""},
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "",
+                                "function": {"name": None, "arguments": '{"order_number":'},
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {"index": 0, "function": {"name": None, "arguments": '"DEV-ORDER-1"}'}}
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        },
+        {"choices": [{"delta": {"tool_calls": None}}]},
+        {"choices": [], "usage": {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20}},
+    ]
+    raw = "".join("data: " + json.dumps(frame) + "\n\n" for frame in records) + "data: [DONE]\n\n"
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, text=raw))
+    ) as client:
+        events = [
+            event async for event in HTTPModelProvider(settings(), client).stream([], [], 320)
+        ]
+    calls = [event.tool_call for event in events if event.kind == "tool_call"]
+    assert len(calls) == 1
+    assert calls[0].id == "call-qwen"
+    assert calls[0].name == "lookup_order"
+    assert calls[0].arguments == {"order_number": "DEV-ORDER-1"}
+    assert next(event.usage for event in events if event.kind == "usage")["total_tokens"] == 20
+
+
+async def test_length_finished_model_output_is_failed_even_if_sse_is_complete():
+    from servicehub.ai.provider import HTTPModelProvider
+
+    raw = 'data: {"choices":[{"delta":{"content":"未完成的回答"},"finish_reason":"length"}]}\n\ndata: [DONE]\n\n'
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, text=raw))
+    ) as client:
+        with pytest.raises(BusinessError) as error:
+            _ = [event async for event in HTTPModelProvider(settings(), client).stream([], [], 320)]
+    assert error.value.code == "model_output_truncated"

@@ -4,12 +4,14 @@ import asyncio
 import io
 import json
 import os
+from datetime import timedelta
 from decimal import Decimal
 
 from servicehub.auth.models import Tenant, User
 from servicehub.auth.schemas import Principal
 from servicehub.auth.security import hash_password
 from servicehub.core.config import load_settings
+from servicehub.db.base import utcnow
 from servicehub.db.engine import create_database
 from servicehub.db.metadata import metadata  # noqa: F401 -- register all tenant foreign keys
 from servicehub.knowledge.models import KnowledgeDocument
@@ -20,11 +22,11 @@ from starlette.datastructures import UploadFile
 
 POLICY_TITLE = "商城售后服务政策（开发示例）"
 POLICY = """# 商城售后服务政策
-此文档是本地开发用的虚构商家政策，实际业务规则应由商家管理员上传。
+此文档是本地开发用的虚构商家政策，实际业务规则应由商家管理员上传。十五天退换为示例商家承诺。
 ## 七天退货
 签收七天内，未使用且包装、配件完整的商品可以申请退货。定制、已激活等特殊商品需人工核实。
 ## 质量问题
-发现无法开机、破损或功能故障，请保留照片、视频和包装，提供订单号，并选择退货、换货或维修申请。
+经商家确认的质量问题、错发或物流损坏，签收十五天内可准备退货或换货申请；维修需核实质量事实且仍在保修期。请保留照片、视频和包装并提供订单号。
 系统只准备申请草稿，客户点击确认后生成待审核工单。客服审核后告知寄回要求。
 ## 物流
 订单发货后可查询承运商、物流单号和最新记录。物流延迟或签收异常请转人工核查。
@@ -82,10 +84,31 @@ async def seed_development(
                             await session.flush()
                         users[local] = user
                     order_numbers = []
-                    for number, customer, product, price, status in [
-                        ("SH20261021001", "customer", "无线降噪耳机", "599.00", "DELIVERED"),
-                        ("SH20261021002", "customer", "机械键盘", "899.00", "SHIPPED"),
-                        ("SH20261021003", "customer2", "智能清洁机器人", "1299.00", "DELIVERED"),
+                    for number, customer, product, price, status, category in [
+                        (
+                            "SH20261021001",
+                            "customer",
+                            "无线降噪耳机",
+                            "599.00",
+                            "DELIVERED",
+                            "electronics",
+                        ),
+                        (
+                            "SH20261021002",
+                            "customer",
+                            "机械键盘",
+                            "899.00",
+                            "SHIPPED",
+                            "electronics",
+                        ),
+                        (
+                            "SH20261021003",
+                            "customer2",
+                            "智能清洁机器人",
+                            "1299.00",
+                            "DELIVERED",
+                            "household",
+                        ),
                     ]:
                         row = await session.scalar(
                             select(Order).where(
@@ -99,6 +122,17 @@ async def seed_development(
                                 order_number=number,
                                 total_amount=Decimal(price),
                                 status=status,
+                                after_sale_facts={
+                                    "category": category,
+                                    "signed_at": (utcnow() - timedelta(days=2)).isoformat()
+                                    if status == "DELIVERED"
+                                    else None,
+                                    "return_condition": "intact",
+                                    "exclusion_confirmed": False,
+                                    "quality_issue": True,
+                                    "warranty_until": (utcnow() + timedelta(days=365)).isoformat(),
+                                    "requires_manual_review": False,
+                                },
                                 carrier="本地示例承运商",
                                 tracking_number="LOCAL-" + number,
                                 delivery_summary="已签收，订单仅供本地开发"

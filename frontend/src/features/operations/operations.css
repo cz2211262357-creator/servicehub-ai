@@ -1,0 +1,85 @@
+.ai-quality-section {
+  margin: 24px 0;
+}
+.ai-quality-section > .card-header {
+  margin-bottom: 14px;
+  padding: 0;
+}
+.ai-quality-section .stat-card {
+  min-width: 0;
+}
+.ai-quality-section .stat-card strong {
+  font-size: clamp(18px, 1.8vw, 28px);
+  overflow-wrap: anywhere;
+}
+.trace-panel {
+  margin-top: 22px;
+  padding: 22px;
+}
+.trace-panel > .card-header {
+  padding: 0 0 16px;
+}
+.trace-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.trace-search label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.trace-search input {
+  width: 180px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: var(--surface);
+  color: inherit;
+}
+.trace-run-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 22px 0 12px;
+}
+.trace-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trace-list > li {
+  padding: 17px 0;
+  border-top: 1px solid var(--line);
+}
+.trace-list .row {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.trace-list p,
+.trace-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 8px 0 0;
+}
+.trace-list code {
+  color: var(--danger);
+}
+.trace-parameter {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .trace-panel {
+    padding: 16px;
+  }
+  .trace-search label {
+    width: 100%;
+  }
+  .trace-search input {
+    flex: 1;
+    min-width: 0;
+  }
+}

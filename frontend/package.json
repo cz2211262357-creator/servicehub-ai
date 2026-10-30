@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "generate:api": "openapi-typescript ../.cache/java-openapi.json -o src/api/generated/schema.d.ts"
+    "generate:api": "openapi-typescript ../.cache/java-openapi.json -o src/api/generated/schema.d.ts",
+    "generate:api:python": "openapi-typescript ../.cache/openapi.json -o src/api/generated/python-schema.d.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.0",

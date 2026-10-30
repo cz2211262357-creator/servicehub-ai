@@ -36,7 +36,7 @@ async def test_expiry_during_evidence_validation_rolls_back_the_formal_answer(
         return citations
 
     monkeypatch.setattr(service.retriever, "revalidate", slow_revalidate)
-    result = AgentResult("迟到回答", [evidence], [], None)
+    result = AgentResult("迟到回答 [1]", [evidence], [], None)
     assert await service.commit_result(lease, lease.payload["generation_epoch"], result) is False
     async with env.sessions() as session:
         assert (

@@ -1,6 +1,15 @@
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import JSON, BigInteger, ForeignKeyConstraint, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    ForeignKeyConstraint,
+    Index,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from servicehub.db.base import Base, TenantEntity, UTCDateTime, tenant_constraints
@@ -48,3 +57,27 @@ class ToolCall(TenantEntity, Base):
     outcome: Mapped[str] = mapped_column(String(24))
     latency_ms: Mapped[int] = mapped_column(default=0)
     error_code: Mapped[str | None] = mapped_column(String(64))
+
+
+class TraceSpan(TenantEntity, Base):
+    __tablename__ = "ai_trace_spans"
+    __table_args__ = tenant_constraints(
+        ForeignKeyConstraint(["tenant_id", "ai_run_id"], ["ai_runs.tenant_id", "ai_runs.id"]),
+        Index("ix_ai_trace_spans_run", "tenant_id", "ai_run_id", "execution_version", "id"),
+        Index("ix_ai_trace_spans_window", "tenant_id", "started_at"),
+    )
+    ai_run_id: Mapped[int] = mapped_column(BigInteger)
+    execution_version: Mapped[int] = mapped_column()
+    kind: Mapped[str] = mapped_column(String(24))
+    name: Mapped[str] = mapped_column(String(80))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    latency_ms: Mapped[int | None] = mapped_column()
+    outcome: Mapped[str] = mapped_column(String(24))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    arguments_summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    model: Mapped[str | None] = mapped_column(String(160))
+    usage: Mapped[dict | None] = mapped_column(JSON)
+    estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(20, 10))
+    cost_currency: Mapped[str | None] = mapped_column(String(12))
+    price_version: Mapped[str | None] = mapped_column(String(80))

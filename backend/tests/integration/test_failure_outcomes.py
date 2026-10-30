@@ -100,8 +100,8 @@ async def test_index_storage_failure_reaches_a_retryable_final_document_state(
     from servicehub.ai.embedding import HTTPEmbeddingProvider
     from servicehub.jobs.outbox import OutboxDispatcher
     from servicehub.jobs.worker import Worker
+    from servicehub.knowledge.hybrid_index import HybridIndex
     from servicehub.knowledge.indexer import KnowledgeIndexer
-    from servicehub.knowledge.retrieval import VectorIndex
 
     admin = await login("admin")
     result = await admin.post(
@@ -120,7 +120,7 @@ async def test_index_storage_failure_reaches_a_retryable_final_document_state(
         raise ConnectionError("private-provider-detail")
 
     monkeypatch.setattr(HTTPEmbeddingProvider, "embed", embed)
-    monkeypatch.setattr(VectorIndex, "write", unavailable)
+    monkeypatch.setattr(HybridIndex, "write", unavailable)
     indexer = KnowledgeIndexer(env.sessions, env.redis, cfg)
 
     async def handle(lease):

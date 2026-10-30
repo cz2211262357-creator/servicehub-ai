@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, post } from "./client";
-import type { Schemas } from "./client";
+import type { Schemas, PythonSchemas } from "./client";
 
 type Message = Schemas["MessageDTO"];
 type Conversation = Schemas["ConversationDTO"];
@@ -31,11 +31,21 @@ function unique(messages: Message[]) {
   );
 }
 function replyError(conversation: Conversation | null): Error | null {
-  const reply = conversation?.ai_reply;
+  const reply = conversation?.ai_reply as
+    | (NonNullable<Conversation["ai_reply"]> & {
+        error_message?: PythonSchemas["AIReplyDTO"]["error_message"];
+      })
+    | null
+    | undefined;
   if (reply?.state === "failed")
-    return new Error("智能回复已失败，请转人工处理或联系管理员重试。");
+    return new Error(
+      reply.error_message || "智能回复已失败，请转人工处理或联系管理员重试。",
+    );
   if (reply?.state === "retrying")
-    return new Error("智能回复暂时失败，正在自动重试，也可以转人工处理。");
+    return new Error(
+      reply.error_message ||
+        "智能回复暂时失败，正在自动重试，也可以转人工处理。",
+    );
   return null;
 }
 function streamIdentity(value: Conversation | null) {
@@ -60,7 +70,8 @@ function chooseSnapshot(
   if (!candidate) return previous;
   if (candidate.generation_epoch < epoch) return previous;
   // Snapshot progress is independent of the durable socket replay cursor.
-  if (previous && candidate.last_event_seq < previous.last_event_seq) return previous;
+  if (previous && candidate.last_event_seq < previous.last_event_seq)
+    return previous;
   if (candidate.generation_epoch === epoch && previous) {
     if (candidate.version < previous.version) return previous;
     if (
@@ -148,11 +159,13 @@ export function applyEvent(state: LiveState, event: Event): LiveState {
   }
   if (event.kind === "ai.failed" && event.generation_epoch === state.epoch) {
     next.partialText = "";
-    next.error = new Error(
-      event.payload.will_retry === true
-        ? "智能回复暂时失败，正在自动重试，也可以转人工处理。"
-        : "智能回复已失败，请转人工处理或联系管理员重试。",
-    );
+    next.error =
+      (event.payload.conversation ? replyError(conversation) : null) ??
+      new Error(
+        event.payload.will_retry === true
+          ? "智能回复暂时失败，正在自动重试，也可以转人工处理。"
+          : "智能回复已失败，请转人工处理或联系管理员重试。",
+      );
   }
   return next;
 }

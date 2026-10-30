@@ -110,6 +110,13 @@ export function JobsPage() {
                             : job.kind}
                       </strong>
                       <span className="table-subtitle">任务 #{job.id}</span>
+                      {job.kind === "ai_reply" &&
+                        typeof job.payload?.ai_run_id === "number" &&
+                        Number.isSafeInteger(job.payload.ai_run_id) && (
+                          <span className="table-subtitle">
+                            AI 运行 #{job.payload.ai_run_id}
+                          </span>
+                        )}
                     </td>
                     <td>
                       <Badge value={job.state} />

@@ -1,0 +1,235 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "2026-10-29.v1",
+  "as_of": "2026-10-29T00:00:00Z",
+  "synthetic": true,
+  "merchant": "星桥商城（合成商家）",
+  "legal_baseline_sources": [
+    "https://www.samr.gov.cn/cms_files/filemanager/samr/www/samrnew/samrgkml/nsjg/fgs/202011/W020211116307515971754.pdf"
+  ],
+  "scope_note": "30 个政策单元；150 条冻结评估案例中仅 policy 类 30 条作为预声明 RAG qrels。其余类别用于工具、权限和状态评估。无真实客户数据。",
+  "policy_rule_note": "签收15天内的质量/错发/运输破损退换是本合成商家的加宽承诺，不是通用品类法定期限；复杂和危险案例人工复核。",
+  "documents": [
+    {
+      "policy_id": "P01",
+      "title": "七日无理由与商家承诺的边界",
+      "path": "corpus/P01.md",
+      "sha256": "6460cacdac8f56c500a0b4a8253eafd139ea52287a0493d078c86291e2cee965",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P02",
+      "title": "商品完好、试穿与合理查验",
+      "path": "corpus/P02.md",
+      "sha256": "5fde8c894a60798a88fb989aed477fca6fcbc1421f946410fb0a497ee4093ddd",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P03",
+      "title": "服饰鞋包退换货规则",
+      "path": "corpus/P03.md",
+      "sha256": "93be4e69946f2d82dab740789c6cc14f16313f79167c41f9cd446680847032de",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P04",
+      "title": "普通电子产品开箱与激活",
+      "path": "corpus/P04.md",
+      "sha256": "487099dd3f0e7ac77aa26c51c6025f751f7f5ae4b91de999161812c49af8a513",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P05",
+      "title": "家居日用品与安装商品",
+      "path": "corpus/P05.md",
+      "sha256": "667cf75f6e6fa8557916c2c200fa780416149aa483ad854dd1fbf292a8c3da82",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P06",
+      "title": "鲜活易腐食品与质量异议",
+      "path": "corpus/P06.md",
+      "sha256": "9293800d4f3f9217e59eaf04e58d8d86eb7b7924d59a7a8e9641bb72f2f4fb8e",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P07",
+      "title": "定制商品与制作错误",
+      "path": "corpus/P07.md",
+      "sha256": "ae5d52271e3613a86893192ea995f8e193bee962119b7e5b543ae464d6b2ae18",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P08",
+      "title": "数字商品的履行状态",
+      "path": "corpus/P08.md",
+      "sha256": "4915bf0ac21bb63dd9c9e51a2098bfc63bac8c01600c0c2f299fc9182b8defc5",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P09",
+      "title": "退货运费承担",
+      "path": "corpus/P09.md",
+      "sha256": "bb083519619f1adb24bcc562647000f017be6154ba05a6de69f01c9c9486f028",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P10",
+      "title": "运费险、补贴与垫付",
+      "path": "corpus/P10.md",
+      "sha256": "9a9690887e91a35d4f51e8193110d28629ce479e22e6804eab865d96fedc36a5",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P11",
+      "title": "保修期与保修凭证",
+      "path": "corpus/P11.md",
+      "sha256": "6131e4667e425b0eaffb6a68cd7975c93fced26140402a9c9f83594af08f31f0",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P12",
+      "title": "维修流程与退换边界",
+      "path": "corpus/P12.md",
+      "sha256": "ddea470b657f0acc2f515a031cc704fca779db86031e06967531327b49308dda",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P13",
+      "title": "物流停滞与包裹丢失 SOP",
+      "path": "corpus/P13.md",
+      "sha256": "09e20f7e73de5c3b4dbb8d73508afe5284c5d2ea4e8466976f23c8859cb1f7b4",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P14",
+      "title": "运输破损与安全异常 SOP",
+      "path": "corpus/P14.md",
+      "sha256": "fbd19fd66fcd8344bb4b83678fd3cae19513d156e179a07f3a5f78067df2291a",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P15",
+      "title": "错发商品处理 SOP",
+      "path": "corpus/P15.md",
+      "sha256": "ed9c0c34f56e6b5ab461f5f69030e43ca805e75ae6a28be44260f6f32b543792",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P16",
+      "title": "少件、漏发与配件缺失 SOP",
+      "path": "corpus/P16.md",
+      "sha256": "45edb44d8175b64b3f485a1247661f3073be5239be94770ad21882210a75b259",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P17",
+      "title": "多商品与部分退货",
+      "path": "corpus/P17.md",
+      "sha256": "f71e1eaaf8e3f6dda741c8e6a11ba03994da886c9afed6c77074e1ca4f681bea",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P18",
+      "title": "重复申请与草稿确认",
+      "path": "corpus/P18.md",
+      "sha256": "618fc2117b955bbc609e1a4fa18c4b9d9a31315d45196beb578830da5b10a720",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P19",
+      "title": "退款进度与外部操作边界",
+      "path": "corpus/P19.md",
+      "sha256": "5c7e4b43e1692758f94959321eb1951430b7126a89dc9c4b731c00d7cd4cf2ad",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P20",
+      "title": "身份、租户与资料安全",
+      "path": "corpus/P20.md",
+      "sha256": "28ba9c81ee754838039134d66be08c333b813d06c3e741ca0ff75403bfa5e547",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P21",
+      "title": "人工接管与资料不全",
+      "path": "corpus/P21.md",
+      "sha256": "7287345972c234e1ea4eea49491bc501b3abe1482b6289ec471f7a29e835c0a6",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P22",
+      "title": "优惠券、满减与退款金额",
+      "path": "corpus/P22.md",
+      "sha256": "831c3125076706655b415ff2dd71fd219ffaa456e5b3223ecacda34a6236c63b",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P23",
+      "title": "发票与购买凭证",
+      "path": "corpus/P23.md",
+      "sha256": "9405a35e8b04a64b9e2016237b25b9c2b6edaaf6fbbb9ca39a7256bebd5d9342",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P24",
+      "title": "赠品、套装与随货附件",
+      "path": "corpus/P24.md",
+      "sha256": "7fdd0c5275bcfd16e976883c2455cdf4b978ec8dbbd4ec08dc82a16ef54126c3",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P25",
+      "title": "未发货与已取消订单",
+      "path": "corpus/P25.md",
+      "sha256": "07b037f08dc1e45ab37b9a4e5877ccedea8f5730b1f50539cd125500992e975d",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P26",
+      "title": "多订单选择与更正",
+      "path": "corpus/P26.md",
+      "sha256": "96e1e047871021a5e8de9747375eba29169cad700f910b0fe785431dd70d5e75",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P27",
+      "title": "期限边界与时间事实",
+      "path": "corpus/P27.md",
+      "sha256": "87ac1ffbee3b655ee1950cfecdfa5df14c4a3253bcd410716a11fd7c7a6e594d",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P28",
+      "title": "退货地址、寄回与收货",
+      "path": "corpus/P28.md",
+      "sha256": "dc293030de8e1cb639001d7b1137695db151c840bf4cde9a1f2453dfd3263732",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P29",
+      "title": "证据留存与敏感信息最小化",
+      "path": "corpus/P29.md",
+      "sha256": "82befc8a9e5fe9549d6cbc0b54bcad08fc23d13792b9085b4d42f6c2756efa2e",
+      "source_kind": "synthetic_merchant_policy"
+    },
+    {
+      "policy_id": "P30",
+      "title": "订单状态与查询答复",
+      "path": "corpus/P30.md",
+      "sha256": "3f47fbf65eb2847f8eeb6cf5025a0ed3b7f4fb942a9989289bf6cdd444e1cc8e",
+      "source_kind": "synthetic_merchant_policy"
+    }
+  ],
+  "gold_set": {
+    "path": "cases.json",
+    "count": 150,
+    "sha256": "5d7e4ef3ef6a83c6916b0b1ce285d7693ea51536f509c2aec24e4aafce173a89"
+  },
+  "development_set": {
+    "path": "dev_cases.json",
+    "count": 5,
+    "not_part_of_gold": true
+  },
+  "snapshot_sha256": "a6c5db4b68a24775777fd4f446c303a40f82818925fa8919bbbea234fcb4460f"
+}

@@ -38,6 +38,7 @@ class HTTPModelProvider:
             "model": cfg.model_name,
             "messages": messages,
             "stream": True,
+            "temperature": cfg.model_temperature,
             "max_tokens": min(budget, cfg.max_output_tokens),
             "stream_options": {"include_usage": True},
         }
@@ -49,7 +50,7 @@ class HTTPModelProvider:
             timeout=cfg.model_timeout_seconds,
             limits=httpx.Limits(max_connections=16, max_keepalive_connections=8),
         )
-        calls, done = {}, False
+        calls, done, truncated = {}, False, False
         try:
             async with client.stream(
                 "POST",
@@ -77,21 +78,28 @@ class HTTPModelProvider:
                     if frame.get("usage"):
                         yield ModelEvent("usage", usage=frame["usage"])
                     for choice in frame.get("choices", []):
-                        delta = choice.get("delta", {})
+                        truncated = truncated or choice.get("finish_reason") == "length"
+                        delta = choice.get("delta") or {}
                         if isinstance(delta.get("content"), str) and delta["content"]:
                             yield ModelEvent("delta", text=delta["content"])
-                        for fragment in delta.get("tool_calls", []):
+                        for fragment in delta.get("tool_calls") or []:
                             index = fragment["index"]
                             call = calls.setdefault(index, {"id": "", "name": "", "arguments": ""})
                             if fragment.get("id"):
                                 call["id"] = fragment["id"]
-                            function = fragment.get("function", {})
-                            call["name"] += function.get("name", "")
-                            call["arguments"] += function.get("arguments", "")
+                            function = fragment.get("function") or {}
+                            call["name"] += function.get("name") or ""
+                            call["arguments"] += function.get("arguments") or ""
                             if len(call["arguments"]) > 16000 or len(calls) > cfg.max_tool_steps:
                                 raise ValueError("Model tool budget exceeded")
             if not done:
                 raise BusinessError("model_truncated_stream", "模型响应中断，请重试", 502)
+            if truncated:
+                raise BusinessError(
+                    "model_output_truncated",
+                    "模型输出达到上限，未完成本次回答，请重试或转人工",
+                    502,
+                )
             for _, call in sorted(calls.items()):
                 args = json.loads(call["arguments"])
                 if not call["id"] or not call["name"] or not isinstance(args, dict):

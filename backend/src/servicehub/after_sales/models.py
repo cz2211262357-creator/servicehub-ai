@@ -19,11 +19,26 @@ class TicketDraft(TenantEntity, Base):
     __table_args__ = tenant_constraints(
         ForeignKeyConstraint(["tenant_id", "customer_id"], ["users.tenant_id", "users.id"]),
         ForeignKeyConstraint(["tenant_id", "order_id"], ["orders.tenant_id", "orders.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "run_id"],
+            ["ai_runs.tenant_id", "ai_runs.id"],
+            name="fk_ticket_drafts_run",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "conversation_id"],
+            ["conversations.tenant_id", "conversations.id"],
+            name="fk_ticket_drafts_conversation",
+        ),
+        UniqueConstraint("tenant_id", "run_id", name="uq_ticket_drafts_tenant_run"),
     )
     customer_id: Mapped[int] = mapped_column(BigInteger)
     order_id: Mapped[int] = mapped_column(BigInteger)
     kind: Mapped[str] = mapped_column(String(24))
     reason: Mapped[str] = mapped_column(Text)
+    reason_code: Mapped[str] = mapped_column(String(24), default="OTHER", server_default="OTHER")
+    run_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    conversation_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    execution_version: Mapped[int | None] = mapped_column(nullable=True)
     version: Mapped[int] = mapped_column(default=1)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     consumed: Mapped[bool] = mapped_column(Boolean, default=False)

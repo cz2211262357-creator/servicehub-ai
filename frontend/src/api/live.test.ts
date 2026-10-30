@@ -203,3 +203,30 @@ test("worker recovery at the same epoch clears partial text from its expired lea
   } as never);
   expect(next.partialText).toBe("");
 });
+
+test("failure events retain a public explanation from their accepted snapshot", () => {
+  const state = applyEvent(initialLiveState, event);
+  const failed = applyEvent(state, {
+    kind: "ai.failed",
+    conversation_id: 1,
+    seq: 2,
+    generation_epoch: 1,
+    payload: {
+      conversation: {
+        id: 1,
+        status: "AI_ACTIVE",
+        version: 1,
+        last_event_seq: 2,
+        generation_epoch: 1,
+        ai_reply: {
+          run_id: 1,
+          state: "failed",
+          error_message: "知识检索暂不可用，请稍后重试或转人工。",
+        },
+      },
+    },
+  });
+  expect((failed.error as Error).message).toBe(
+    "知识检索暂不可用，请稍后重试或转人工。",
+  );
+});

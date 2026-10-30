@@ -1,7 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from servicehub.after_sales.eligibility import AfterSaleFacts
 
 
 class OrderItemDTO(BaseModel):
@@ -26,6 +28,16 @@ class OrderDTO(BaseModel):
     delivery_summary: str | None
     created_at: datetime
     items: list[OrderItemDTO] = Field(default_factory=list)
+    after_sale_facts: AfterSaleFacts | None = None
+
+    @field_validator("after_sale_facts", mode="before")
+    @classmethod
+    def safe_trusted_facts(cls, value):
+        # Legacy or malformed facts are unknown to callers, never silently authorized.
+        try:
+            return AfterSaleFacts.model_validate(value) if value is not None else None
+        except (ValidationError, TypeError, ValueError):
+            return None
 
 
 class OrderPage(BaseModel):

@@ -6,15 +6,15 @@ function Check-Exit([string]$Step) {
     if ($LASTEXITCODE -ne 0) { throw "$Step failed with exit code $LASTEXITCODE" }
 }
 try {
-    uv run ruff check backend scripts
+    uv run ruff check backend scripts evals
     Check-Exit 'Python lint'
-    uv run ruff format --check backend scripts
+    uv run ruff format --check backend scripts evals
     Check-Exit 'Python formatting'
     uv run pytest -q
     Check-Exit 'Backend tests'
     uv run python scripts/export_openapi.py
     Check-Exit 'OpenAPI export'
-    npm --prefix frontend run generate:api
+    npm --prefix frontend run generate:api:python
     Check-Exit 'API types'
     npm --prefix frontend run typecheck
     Check-Exit 'Frontend typecheck'

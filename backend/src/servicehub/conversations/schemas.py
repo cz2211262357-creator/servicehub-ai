@@ -25,6 +25,7 @@ class AIReplyDTO(BaseModel):
     run_id: int
     state: str
     error_code: str | None = None
+    error_message: str | None = None
     will_retry: bool = False
     generation_epoch: int
     attempts: int

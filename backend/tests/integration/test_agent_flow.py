@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from servicehub.ai.provider import ModelEvent
 from servicehub.conversations.models import Message
@@ -8,7 +10,9 @@ pytestmark = pytest.mark.integration
 
 class AnswerProvider:
     async def stream(self, messages, tools, budget):
-        yield ModelEvent("delta", text="可在七天内申请退货，请保留完整包装。")
+        matched = re.search(r'"chunk_id":\s*(\d+)', messages[1]["content"])
+        assert matched, "Controlled provider requires actual retrieved evidence"
+        yield ModelEvent("delta", text=f"可在七天内申请退货，请保留完整包装。[{matched.group(1)}]")
         yield ModelEvent(
             "usage", usage={"prompt_tokens": 30, "completion_tokens": 15, "total_tokens": 45}
         )

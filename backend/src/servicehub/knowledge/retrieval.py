@@ -8,6 +8,7 @@ from sqlalchemy import select, text
 
 from servicehub.ai.embedding import HTTPEmbeddingProvider
 from servicehub.ai.schemas import Evidence
+from servicehub.knowledge.hybrid_index import HybridIndex
 from servicehub.knowledge.models import (
     DocumentVersion,
     KnowledgeActiveVersion,
@@ -166,9 +167,14 @@ class VectorIndex:
 
 
 class Retriever:
-    def __init__(self, sessions, redis, settings, embedding=None):
+    def __init__(self, sessions, redis, settings, embedding=None, retrieval_backend=None):
         self.sessions, self.redis, self.settings = sessions, redis, settings
         self.embedding = embedding or HTTPEmbeddingProvider(settings)
+        self.retrieval_backend = retrieval_backend or getattr(
+            settings, "retrieval_backend", "mysql_legacy"
+        )
+        if self.retrieval_backend not in ("mysql_legacy", "redis_hybrid"):
+            raise ValueError("Unknown retrieval backend")
 
     async def keyword(self, principal, query, limit=30):
         eligible = (
@@ -294,7 +300,7 @@ class Retriever:
             }
         return [evidence[key] for key, _ in rankings if key in evidence]
 
-    async def search(self, principal, query, limit=5):
+    async def _search_legacy(self, principal, query, limit=5):
         rankings = [await self.keyword(principal, query)]
         if self.settings.model_mode == "online":
             versions = await self.active_versions(principal)
@@ -308,6 +314,58 @@ class Retriever:
             rankings.append(
                 await index.search(principal.tenant_id, vector, 30, version_ids=versions)
             )
+        return (await self.finalize(principal, rrf_rank(rankings)))[:limit]
+
+    async def channels(self, principal, query):
+        """Return the two 30-candidate channels for the selected backend.
+
+        Lexical/vector ablations can fuse one channel with the same RRF and SQL
+        revalidation as search; this exposes no unvalidated Evidence objects.
+        """
+        if self.retrieval_backend == "mysql_legacy":
+            keyword = await self.keyword(principal, query)
+            vector_hits = []
+            if self.settings.model_mode == "online":
+                versions = await self.active_versions(principal)
+                if versions:
+                    vector = (await self.embedding.embed([query]))[0]
+                    index = VectorIndex(
+                        self.redis,
+                        self.settings.embedding_model,
+                        self.settings.embedding_dimensions,
+                    )
+                    await index.backfill_versions(self.sessions)
+                    vector_hits = await index.search(
+                        principal.tenant_id, vector, 30, version_ids=versions
+                    )
+            return [keyword, vector_hits]
+        versions = await self.active_versions(principal)
+        if not versions:
+            return [[], []]
+        index = HybridIndex(
+            self.redis, self.settings.embedding_model, self.settings.embedding_dimensions
+        )
+        online = self.settings.model_mode == "online"
+        await index.backfill_active(
+            self.sessions,
+            tenant_id=principal.tenant_id,
+            version_ids=versions,
+            embedding=self.embedding,
+            require_vectors=online,
+        )
+        keyword = await index.search_keyword(principal.tenant_id, query, 30, version_ids=versions)
+        vector_hits = []
+        if online:
+            vector = (await self.embedding.embed([query]))[0]
+            vector_hits = await index.search_vector(
+                principal.tenant_id, vector, 30, version_ids=versions
+            )
+        return [keyword, vector_hits]
+
+    async def search(self, principal, query, limit=5):
+        if self.retrieval_backend == "mysql_legacy":
+            return await self._search_legacy(principal, query, limit)
+        rankings = await self.channels(principal, query)
         return (await self.finalize(principal, rrf_rank(rankings)))[:limit]
 
     async def revalidate(self, principal, evidence):

@@ -1,124 +1,95 @@
-# ServiceHub AI
+# ServiceHub AI · Python
 
-[![Java platform verification](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/java-ci.yml/badge.svg)](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/java-ci.yml)
+**React / TypeScript + FastAPI + MySQL + Redis 的电商售后客服平台。** 将知识问答、本人订单查询、售后资格校验、草稿准备、客户确认和人工接待串成完整流程，接入真实百炼对话与 Embedding API。
 
-**基于 Java / Spring Boot 与 React 的电商售后客服与知识问答平台。** 接入百炼真实对话与 Embedding，将知识检索、订单核查、售后草稿、客户确认、人工接待和运营审计连接为完整业务流程。
+这是独立的 `python-quality` 分支。Java / Spring Boot 版本继续保留在 [main](https://github.com/cz2211262357-creator/servicehub-ai/tree/main)；两个版本使用独立数据库和端口。Python 的模型工具循环由本项目实现，不依赖 LangChain / LangGraph，也不包含独立的 InsightPilot 问数项目。
 
-项目采用模块化单体 API 加独立 Worker。重点实现多租户授权、消息幂等、事务 Outbox、RabbitMQ 投递、数据库租约围栏、话题切换和旧回答拦截。订单使用可替换的合成数据，模型请求、向量索引、队列和数据库写入均使用真实链路；没有接入外部电商、物流或支付退款系统。
+[![Python verification](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/ci.yml/badge.svg?branch=python-quality)](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/ci.yml?query=branch%3Apython-quality)
 
-原 FastAPI 版本继续保留，历史启动与实测说明见 [Python 版本说明](docs/operations/Python版本使用与验收.md)。当前主线交付以 Java 后端为准。
+## 本轮升级
 
-## 业务能力
+- **Redis BM25STD + HNSW + RRF**：中文词法与向量双路检索，租户及有效版本过滤，新索引完整写入后才激活；保留 MySQL ngram 基线和旧向量用于对照、回滚。
+- **可信售后规则**：按服务端品类、签收时间、完好性、已确认质量事实和保修期限判定；准备与确认都检查当前资格、权限和执行版本。缺事实时澄清或人工核验，模型不能自行改写订单事实。
+- **多轮草稿状态**：普通追问保留已完成草稿，明确撤回或换单使旧草稿失效；失败任务、旧执行和人工接管不能生成新的可确认草稿。聊天中的“同意”不替代客户点击确认。
+- **离线评估**：30 份版本化售后政策、150 条固定案例（5 类各 30）和独立开发集，运行真实 HTTP → Job → Agent → 工具 → 数据库链路，记录逐例断言和可选质量裁判。
+- **在线观测**：模型、工具与检索逐次持久 Trace；管理端查看失败率、人工接管率、P95、Token 覆盖率和配置后的费用估计。供应商或单价缺失记为“未知”。
 
-| 角色 | 功能 |
+合成商家和订单用于本地运行及回归，不是接入了真实 ERP。数据库、索引、队列、权限和模型调用均为实际执行；未连接外部支付退款和物流下单系统。
+
+## 检索实测
+
+在同一语料、分块、qrels、30 条政策问题、真实 `text-embedding-v4` / 1024 维向量下比较，两路候选各 30、RRF k=60：
+
+| 检索方案 | Recall@5 | MRR@10 |
+|---|---:|---:|
+| MySQL ngram + HNSW + RRF（原版） | 0.8000 | 0.8444 |
+| Redis BM25STD + HNSW + RRF（升级） | **0.9000** | 0.8678 |
+| BM25STD 单路 | 0.8000 | 0.7281 |
+| HNSW 单路 | 0.8556 | **0.9167** |
+
+Recall 的配对差值为 +0.10（95% bootstrap CI [0.0167, 0.1833]）；MRR 差值 +0.0233 的区间 [-0.0500, 0.1000] 跨 0，不能据此断言稳定改善。向量单路本次 MRR 更高，融合并非每项指标都最好。中文查询归一化也同时变更，因此比较的是完整检索方案。30 条合成问题不代表生产泛化效果。
+
+最终150条真实评估：128/150通过业务硬断言，118/150同时满足严格回答质量；异常与多轮仍是主要短板。完整测量口径、分类结果和失败分析见 [升级验证报告](docs/verification/python-quality-upgrade.md)。
+
+## 技术与结构
+
+| 层次 | 技术 |
 |---|---|
-| 客户 | 会话与知识问答、引用来源、本人订单、售后草稿确认、工单状态、停止回答、话题切换与转人工 |
-| 客服 | 服务队列、竞争接单、客户上下文、人工回复与工单审核 |
-| 管理员 | 私有知识文件和版本、成员授权、任务恢复、审计、依赖健康与真实运营统计 |
+| 客户、客服与管理端 | React、TypeScript、TanStack Query、WebSocket |
+| API / 数据 | FastAPI、Pydantic、SQLAlchemy asyncio、MySQL 8.4、Alembic |
+| 检索与任务 | Redis 8.4 Search / BM25STD / HNSW、RRF、Streams、Outbox、数据库租约围栏 |
+| 模型 | 百炼 qwen-plus、text-embedding-v4、受控 Tool Calling |
+| 质量与交付 | pytest、真实依赖与并发验证、LLM-as-Judge、uv、Docker Compose、GitHub Actions |
 
-## 技术栈
-
-| 部分 | 实现 |
-|---|---|
-| 前端 | React、TypeScript、Vite、TanStack Query、WebSocket |
-| Java 运行时与 API | JDK21、Spring Boot4.1.1、Spring MVC、Spring Security |
-| 数据访问 | MyBatis-Plus3.5.17、显式 SQL、Flyway、MySQL8.4 |
-| 检索与缓存 | Redis8.4 Search/HNSW、MySQL ngram 全文、RRF、Lua 限流和资源准入 |
-| 消息与执行 | RabbitMQ4.3.6、Spring AMQP、事务 Outbox、独立 Worker、数据库租约与执行版本 |
-| 模型与工具 | Spring AI2.0.1、兼容 SDK、qwen-plus、text-embedding-v4/1024维、受控 Tool Calling |
-| 验证与交付 | Maven Wrapper、JUnit、Testcontainers、Vitest、Docker Compose、GitHub Actions |
-
-ServiceHub 的模型回环由 Java 实现，未使用 LangChain 或 LangGraph。它包含受业务边界约束的工具执行，不能将尚未交付的独立 Python/LangGraph 问数项目算作本项目能力。
-
-## 架构
-
-~~~mermaid
-flowchart LR
-    UI[React / TypeScript] --> N[Nginx]
-    N --> API[Spring Boot API 多实例]
-    API --> DB[(MySQL 业务权威源)]
-    API --> R[(Redis)]
-    OB[独立 Outbox 发布循环] --> DB
-    OB --> Q[RabbitMQ]
-    Q --> W[Java Worker]
-    W --> DB
-    W --> R
-    W --> L[qwen-plus]
-    W --> E[text-embedding-v4]
-    R --> API
-~~~
-
-源码在 backend-java/，前端继续使用 frontend/；历史 Python 代码位于 backend/。业务模块包含 auth、conversations、orders、aftersales、knowledge、jobs、ai、realtime、operations，分别管理权限、领域状态与运行边界。
-
-## 核心实现
-
-**权限与最终提交。** 使用独立的 HttpOnly Cookie 会话、CSRF 和 Origin 校验；用户身份由服务端注入，查询同时约束租户及对象归属。工具调用、检索输出及业务提交重新检查当前权限。撤权与业务提交通过同一授权行的锁顺序明确先后，恢复任务也不复用旧的授权结论。
-
-**重复请求与话题切换。** 相同 client_message_id 返回原消息、run/job 和接收版本；内容冲突返回409。首次消息与会话版本、任务、事件、Outbox 在同一事务中提交。前台 epoch 单调递增，A→B→A 也不能接纳旧 A 分片；停止、人工接管、话题切换后的迟到回答均需通过服务器提交校验。
-
-**消息与旧写保护。** Outbox 发布在收到 RabbitMQ confirm 且未被退回后才确认。消费采用至少一次语义，业务结果依赖幂等和数据库条件提交。每次领取任务推进 execution_version；过期 Worker 即使恢复，也不能覆盖替补结果。模型请求可能在故障中重复，不承诺恰好调用一次。
-
-**前后台资源隔离。** 执行和模型准入分别限制总并发4、后台最多3，为交互保留名额。前后台分别消费且 prefetch=1，投递、续租、恢复和清理使用独立循环。前台排队最多60秒、执行硬截止120秒，恢复不会重置截止时间；自动执行最多3次，前两次失败分别退避5/30秒。
-
-**混合检索与来源。** 私有 TXT、Markdown 和文本 PDF 保留原文件、版本及页码。全文与向量双路召回后使用 RRF 融合；召回前过滤租户和有效索引代，回答提交前复核引用。新索引成功后才原子切换有效版本，旧来源不能绕过当前文档授权。
-
-**受控模型工具。** 仅开放 search_policy、lookup_order、prepare_after_sale；参数、输入输出、调用次数、截止时间和权限均由服务端校验。模型可以准备售后草稿，正式工单需要客户确认。Token usage 缺失时保留未知，与真实0区分。
-
-**实时与恢复。** 数据库事件序号用于补放，Redis 只负责通知和临时流事件。WebSocket 会定期重新授权，客户端与服务端同时过滤过期执行，慢连接有有界缓冲和发送超时。
+`backend/` 是 Python API 与 Worker；`frontend/` 是共用前端；`evals/servicehub/` 保存政策和评估器；`scripts/` 提供初始化、回填与测量命令。`backend-java/` 是保留的 Java 版本，Python 部署不启动它。
 
 ## 启动
 
-需要 Git、可用 Docker 环境、uv，以及具有对应模型权限的百炼 Key。首次克隆：
+```bash
+git clone --branch python-quality https://github.com/cz2211262357-creator/servicehub-ai.git
+cd servicehub-ai
+cp .env.example .env
+# 在本地 .env 填写百炼对话与 Embedding Key；不要提交 .env。
+docker compose --profile app build
+docker compose up -d --wait mysql redis
+docker compose --profile app run --rm --no-deps api alembic -c backend/alembic.ini upgrade head
+docker compose --profile app run --rm --no-deps api python scripts/seed.py
+docker compose --profile app up -d --wait api worker web
+```
 
-~~~powershell
-git clone https://github.com/cz2211262357-creator/servicehub-ai.git
-Set-Location servicehub-ai
-$R = (Get-Location).Path
-$W = $R
-.\scripts\bootstrap-java.ps1 -WorkspaceRoot $R
-. .\scripts\java-env.ps1 -WorkspaceRoot $R
-~~~
+网站 `http://localhost:8080`，API 文档 `http://127.0.0.1:8000/api/docs`。默认开发账号和部署限制见 [Python 操作说明](docs/operations/Python版本使用与验收.md)。升级已有库前应先备份；旧订单没有的事实保持未知，不自动猜测补齐。
 
-在忽略的本地配置中填写真实模型接口与 Key，再重新加载 java-env.ps1。初始化工具不会覆盖已有凭证。构建及启动：
+需要加载本轮 30 份政策时，在已安装 uv 的源码目录运行：
 
-~~~powershell
-docker compose --env-file "$R/.env.java" -f "$W/compose.java.yaml" --profile api --profile worker --profile web build
-docker compose --env-file "$R/.env.java" -f "$W/compose.java.yaml" up -d --wait mysql redis rabbitmq
-docker compose --env-file "$R/.env.java" -f "$W/compose.java.yaml" --profile api --profile worker --profile web up -d api worker web
-~~~
+```bash
+uv sync --all-groups --frozen
+uv run python -m scripts.seed_quality
+```
 
-Web 为 http://localhost:8081，API 为 http://127.0.0.1:8001。所有 Compose 端口只绑定127.0.0.1。API 自动执行 Flyway；首次管理员需通过维护工具设置自己的密码，见 [启动与故障恢复](docs/operations/Java启动与故障恢复.md)。
+该命令只在 development 环境导入独立的“星桥商城（合成业务资料）”及新合成订单，不改原商家账号、订单事实或密码；实际索引由运行中的 Worker 执行。
 
-所有直接管理的工具、缓存、构建输出与持久数据位于 R 内，私有数据不参与 Git 或 Docker 构建上下文。Docker Desktop 引擎自身的镜像、容器层和全局缓存单独说明，不宣称被项目目录完全隔离。
+## 复现评估
 
-## 验证与测量
+```bash
+docker compose --profile test up -d --wait mysql redis-test
+uv sync --all-groups --frozen
+uv run pytest -q
+uv run python scripts/export_openapi.py
+npm --prefix frontend ci
+npm --prefix frontend run generate:api:python
+npm --prefix frontend test -- --run
+npm --prefix frontend run build
 
-2026-10-25，[公开代码7b0c470的完整CI](https://github.com/cz2211262357-creator/servicehub-ai/actions/runs/40194564025)通过355项Java测试（35单元、320集成，失败/错误/跳过0）、38项前端测试、类型检查、生产构建及两个容器镜像构建。
+# 使用真实百炼 Embedding；缓存只复用实际向量
+uv run python -m evals.servicehub.cli retrieval --report .cache/retrieval.json --embedding-cache .cache/embeddings.json --backends legacy,new,bm25,vector
+# 受控模式仅验证工程链路，不能作为模型准确率
+uv run python -m evals.servicehub.cli agent --provider controlled --report .cache/controlled.json
+# 真实模型及隔离裁判，会产生 API 用量；每例实时写入报告
+uv run python -m evals.servicehub.cli agent --provider online --judge online --report .cache/agent-online.json --embedding-cache .cache/embeddings.json
+```
 
-最终计数和版本以 [Java 验收记录](docs/verification/java-acceptance.md) 及 [交付证据](docs/verification/java-delivery-evidence.md) 为准。普通回归使用真实临时 MySQL/Redis/RabbitMQ，供应商异常通过受控网络服务注入；真实百炼验收为显式独立入口。
+评估只允许 `servicehub_test` 与独立 Redis 6380；用自有临时租户初始化并清理。请勿指向真实客户库。题库与参考答案在模型执行后评分时使用，不能注入在线 Agent。详情见 [评估数据说明](evals/servicehub/README.md)。
 
-- 原39个HTTP接口与旧 Python 运行时逐项对照，另验证3个话题/停止扩展接口及 WebSocket；核对角色、Cookie、CSRF、权限、错误、时间与金额格式。
-- 实际双 API 进程覆盖重复消息与事务回滚、双页面 CAS、A→B→A、重复售后确认和20名不同客服抢单。
-- 实际 Worker 进程覆盖取消后重启、暂停后租约替换、RabbitMQ confirm 丢失、数据库短断、有限重试和前后台资源隔离。
-- 2026-10-25 真实百炼链路已验证 PDF 向量化、中文带引用回答、订单工具、售后草稿、客户确认及人工回复；15个开发路由样例中，仅3个模糊样例调用分类模型一次。
-- 本机双 API、小数据集的普通读接口，在并发1/10/20下各100次请求，错误数均0，P95为18.63/35.03/25.05ms。它不表示生产容量，也不包括大模型时延。
+## 范围
 
-~~~powershell
-. .\scripts\java-env.ps1 -WorkspaceRoot $R
-& .\backend-java\mvnw.cmd -f backend-java/pom.xml verify
-& .\scripts\java-system-tests.ps1 -WorkspaceRoot $R -ReportPath "$R/.cache/java-verification/system-delivery.json"
-& .\scripts\java-online-check.ps1 -WorkspaceRoot $R -ReportPath "$R/.cache/java-verification/online-delivery.json"
-& .\scripts\java-benchmark.ps1 -WorkspaceRoot $R -ReportPath "$R/.cache/java-verification/benchmark-delivery.json"
-~~~
-
-前端使用 npm --prefix frontend ci，再运行 typecheck、test -- --run 和 build。CI 同时核对生成接口类型漂移。真实模型验收需要本地私有配置，不将真实 Key 放进公开 CI 或构建参数。
-
-## 阅读与边界
-
-- [关键源码与面试讲解](docs/operations/Java关键源码与面试讲解.md)
-- [接口契约矩阵](docs/verification/java-contract-matrix.md)
-- [并发与故障验收矩阵](docs/verification/java-concurrency-acceptance.md)
-- [话题与执行一致性规范](docs/superpowers/specs/2026-10-22-execution-consistency-design.md)
-- [真实模型与验收记录](docs/verification/java-acceptance.md)
-
-本项目不包含支付退款写入、OCR、微服务拆分或跨地域容灾。公网部署还应结合目标环境配置 HTTPS、独立凭证、备份及容量验证。
+当前是可运行、可验证的工程项目；商家政策为合成业务承诺，实际接入须使用授权订单事实和商家审核后的资料。当前仅支持文本 PDF，不含扫描 OCR。跨主机恢复、长期稳定性与生产容量尚未验证；LLM 裁判不是人工审核替代品。外网部署需 HTTPS、Secure Cookie、独立凭证及备份策略。

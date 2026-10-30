@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "./operations.css";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -11,14 +12,16 @@ import {
   Sparkles,
 } from "lucide-react";
 import { api } from "../../api/client";
-import type { Schemas } from "../../api/client";
+import { AIQualityPanel } from "./AIQualityPanel";
+import { RunTracePanel } from "./RunTracePanel";
+import { observed, rate } from "./quality";
+import type { CompatibleMetrics } from "./quality";
 import { useAuth } from "../../app/AuthProvider";
 import {
   Empty,
   ErrorNotice,
   Loading,
   PageTitle,
-  localTime,
 } from "../../components/Feedback";
 
 export function OverviewPage() {
@@ -29,7 +32,7 @@ export function OverviewPage() {
     queryFn: () => {
       const end = new Date(),
         start = new Date(end.getTime() - Number(days) * 86400000);
-      return api<Schemas["MetricsSummary"]>(
+      return api<CompatibleMetrics>(
         "/admin/metrics/summary?start=" +
           encodeURIComponent(start.toISOString()) +
           "&end=" +
@@ -128,6 +131,7 @@ export function OverviewPage() {
                 </div>
               ))}
             </div>
+            <AIQualityPanel data={data} />
             <div className="overview-panels">
               <section className="card">
                 <div className="card-header">
@@ -233,7 +237,12 @@ export function OverviewPage() {
                   {data.total_tokens == null ? (
                     <>
                       <span className="usage-number">—</span>
-                      <h3>暂无模型用量记录</h3>
+                      <h3>
+                        {data.prompt_tokens != null ||
+                        data.completion_tokens != null
+                          ? "总 Token 未知，已收到部分用量"
+                          : "暂无模型用量记录"}
+                      </h3>
                       <p>
                         完成真实模型调用后显示已记录 Token。缺少 usage
                         的调用不会估算补齐。
@@ -246,15 +255,35 @@ export function OverviewPage() {
                       </span>
                       <h3>已记录 Token</h3>
                       <p>
-                        {data.usage_records} / {data.ai_runs} 次运行返回用量记录
+                        {data.model_calls == null
+                          ? `${data.usage_records} / ${data.ai_runs} 次运行返回用量记录`
+                          : `${data.usage_records} / ${data.model_calls} 次模型调用返回总 Token（已知下限）`}
                       </p>
                     </>
                   )}
-                  {data.ai_runs > data.usage_records && (
-                    <p>{data.ai_runs - data.usage_records} 次运行未记录用量</p>
+                  {data.model_calls == null ? (
+                    data.ai_runs > data.usage_records && (
+                      <p>
+                        {data.ai_runs - data.usage_records} 次运行未记录用量
+                      </p>
+                    )
+                  ) : (
+                    <>
+                      <p>总 Token 用量覆盖率 {rate(data.usage_coverage)}</p>
+                      <p>
+                        {observed(data.usage_unknown_records)}{" "}
+                        次模型调用未返回总 Token
+                      </p>
+                      <p>
+                        输入 / 输出已知 Token：{observed(data.prompt_tokens)} /{" "}
+                        {observed(data.completion_tokens)}
+                      </p>
+                    </>
                   )}
                   <div className="usage-footnote">
-                    费用暂不计算，最终账单以供应商为准。
+                    {data.model_calls == null
+                      ? "仅显示供应商返回的用量，缺失值保留未知。"
+                      : "包含失败与重试的已知消耗；未返回的用量保留未知，不补零。"}
                   </div>
                 </div>
               </section>
@@ -285,9 +314,13 @@ export function OverviewPage() {
                 </div>
               )}
             </section>
+            <RunTracePanel />
             {data.end && (
               <p className="data-timestamp">
-                统计截止 {localTime(data.end)} · 时间窗口按创建时间筛选
+                统计窗口（UTC）：{data.start ?? "未知"} 至 {data.end}。
+                {data.model_calls == null
+                  ? "当前服务按会话与运行创建时间筛选，尚未提供调用明细指标。"
+                  : "会话与 AI 总量按创建时间；AI 终态与 P95 按完成时间；调用与 Token 按调用开始时间。"}
               </p>
             )}
           </>

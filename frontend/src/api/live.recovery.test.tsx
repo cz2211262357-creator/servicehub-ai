@@ -227,33 +227,136 @@ test("late callbacks from a replaced socket cannot close the new connection", as
   }
 });
 
-test.each(["terminal", "resolved-topic"])("a delayed same-version refresh cannot regress a newer %s snapshot", async (mode) => {
-  const sockets: Array<{ onmessage?: (event: { data: string }) => void }> = [];
-  vi.stubGlobal("WebSocket", class { onmessage?: (event: { data: string }) => void; close() {} constructor() { sockets.push(this); } });
-  const running = { ...conversation(1), active_topic_id: 10, ai_reply: { run_id: 100, state: "running", execution_version: 1 } };
-  vi.mocked(api).mockImplementation((path) => Promise.resolve(path.endsWith("/messages") ? responses(path) : running) as never);
-  const { result } = renderHook(() => useConversationLive(1));
-  await waitFor(() => expect(result.current.conversation?.id).toBe(1));
-  let finish!: (value: unknown) => void;
-  vi.mocked(api).mockImplementation(() => new Promise(resolve => { finish = resolve; }) as never);
-  let refresh!: Promise<void>;
-  act(() => { refresh = result.current.refresh(); });
-  const newer = { ...running, last_event_seq: 10, active_topic_id: mode === "resolved-topic" ? 20 : 10, ai_reply: { ...running.ai_reply, state: mode === "terminal" ? "succeeded" : "running" } };
-  act(() => sockets[0].onmessage?.({ data: JSON.stringify({ kind: "conversation.updated", conversation_id: 1, seq: 10, generation_epoch: 1, payload: { conversation: newer } }) }));
-  await act(async () => { finish(running); await refresh; });
-  expect(result.current.conversation).toEqual(newer);
-  expect(result.current.lastSeq).toBe(10);
-});
+test.each(["terminal", "resolved-topic"])(
+  "a delayed same-version refresh cannot regress a newer %s snapshot",
+  async (mode) => {
+    const sockets: Array<{ onmessage?: (event: { data: string }) => void }> =
+      [];
+    vi.stubGlobal(
+      "WebSocket",
+      class {
+        onmessage?: (event: { data: string }) => void;
+        close() {}
+        constructor() {
+          sockets.push(this);
+        }
+      },
+    );
+    const running = {
+      ...conversation(1),
+      active_topic_id: 10,
+      ai_reply: { run_id: 100, state: "running", execution_version: 1 },
+    };
+    vi.mocked(api).mockImplementation(
+      (path) =>
+        Promise.resolve(
+          path.endsWith("/messages") ? responses(path) : running,
+        ) as never,
+    );
+    const { result } = renderHook(() => useConversationLive(1));
+    await waitFor(() => expect(result.current.conversation?.id).toBe(1));
+    let finish!: (value: unknown) => void;
+    vi.mocked(api).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }) as never,
+    );
+    let refresh!: Promise<void>;
+    act(() => {
+      refresh = result.current.refresh();
+    });
+    const newer = {
+      ...running,
+      last_event_seq: 10,
+      active_topic_id: mode === "resolved-topic" ? 20 : 10,
+      ai_reply: {
+        ...running.ai_reply,
+        state: mode === "terminal" ? "succeeded" : "running",
+      },
+    };
+    act(() =>
+      sockets[0].onmessage?.({
+        data: JSON.stringify({
+          kind: "conversation.updated",
+          conversation_id: 1,
+          seq: 10,
+          generation_epoch: 1,
+          payload: { conversation: newer },
+        }),
+      }),
+    );
+    await act(async () => {
+      finish(running);
+      await refresh;
+    });
+    expect(result.current.conversation).toEqual(newer);
+    expect(result.current.lastSeq).toBe(10);
+  },
+);
 
 test("a snapshot ahead of the socket never skips durable message replay", async () => {
   const sockets: Array<{ onmessage?: (event: { data: string }) => void }> = [];
-  vi.stubGlobal("WebSocket", class { onmessage?: (event: { data: string }) => void; close() {} constructor() { sockets.push(this); } });
+  vi.stubGlobal(
+    "WebSocket",
+    class {
+      onmessage?: (event: { data: string }) => void;
+      close() {}
+      constructor() {
+        sockets.push(this);
+      }
+    },
+  );
   const { result } = renderHook(() => useConversationLive(1));
   await waitFor(() => expect(result.current.conversation?.id).toBe(1));
-  act(() => result.current.syncConversation({ ...conversation(1), last_event_seq: 11 } as never));
+  act(() =>
+    result.current.syncConversation({
+      ...conversation(1),
+      last_event_seq: 11,
+    } as never),
+  );
   expect(result.current.lastSeq).toBe(9);
-  act(() => sockets[0].onmessage?.({ data: JSON.stringify({ kind: "message.created", conversation_id: 1, seq: 10, generation_epoch: 1, payload: { message: message(1, 102), conversation: { ...conversation(1), last_event_seq: 10 } } }) }));
-  expect(result.current.messages.some(value => value.id === 102)).toBe(true);
+  act(() =>
+    sockets[0].onmessage?.({
+      data: JSON.stringify({
+        kind: "message.created",
+        conversation_id: 1,
+        seq: 10,
+        generation_epoch: 1,
+        payload: {
+          message: message(1, 102),
+          conversation: { ...conversation(1), last_event_seq: 10 },
+        },
+      }),
+    }),
+  );
+  expect(result.current.messages.some((value) => value.id === 102)).toBe(true);
   expect(result.current.conversation?.last_event_seq).toBe(11);
   expect(result.current.lastSeq).toBe(10);
+});
+
+test("reopening uses the public failure explanation supplied by the backend", async () => {
+  vi.mocked(api).mockImplementation(
+    (path) =>
+      Promise.resolve(
+        path.endsWith("/messages")
+          ? responses(path)
+          : {
+              ...conversation(1),
+              ai_reply: {
+                run_id: 1,
+                generation_epoch: 1,
+                state: "failed",
+                error_code: "knowledge_unavailable",
+                error_message: "知识检索暂不可用，请稍后重试或转人工。",
+                attempts: 1,
+              },
+            },
+      ) as never,
+  );
+  const { result } = renderHook(() => useConversationLive(1));
+  await waitFor(() => expect(result.current.conversation?.id).toBe(1));
+  expect((result.current.error as Error).message).toBe(
+    "知识检索暂不可用，请稍后重试或转人工。",
+  );
 });

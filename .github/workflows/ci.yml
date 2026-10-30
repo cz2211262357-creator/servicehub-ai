@@ -1,9 +1,13 @@
-name: verify
-on: [push, pull_request]
+name: Python platform verification
+on:
+  push:
+    paths-ignore: ['docs/**', README.md, evals/servicehub/README.md]
+  pull_request:
+    paths-ignore: ['docs/**', README.md, evals/servicehub/README.md]
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -17,16 +21,23 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Local dependency paths
         run: |
+          mkdir -p .cache
           echo "UV_CACHE_DIR=$GITHUB_WORKSPACE/.cache/uv" >> "$GITHUB_ENV"
           echo "UV_PYTHON_INSTALL_DIR=$GITHUB_WORKSPACE/.python" >> "$GITHUB_ENV"
           echo "npm_config_cache=$GITHUB_WORKSPACE/.cache/npm" >> "$GITHUB_ENV"
       - run: cp .env.example .env
-      - run: docker compose up -d --wait mysql redis redis-test
+      - run: docker compose --profile test up -d --wait mysql redis redis-test
       - run: uv sync --all-groups --frozen
       - run: npm --prefix frontend ci
-      - run: uv run ruff check backend scripts
-      - run: uv run ruff format --check backend scripts
-      - run: uv run pytest -q
-      # React now follows Java's additive contract and is verified in java-ci.yml.
+      - run: uv run ruff check backend scripts evals
+      - run: uv run ruff format --check backend scripts evals
+      - name: Real MySQL and Redis engineering tests (paid API excluded)
+        run: uv run pytest -q
+      - run: uv run python scripts/export_openapi.py
+      - run: npm --prefix frontend run generate:api:python
+      - run: git diff --exit-code -- frontend/src/api/generated/python-schema.d.ts
+      - run: npm --prefix frontend run typecheck
+      - run: npm --prefix frontend test -- --run
+      - run: npm --prefix frontend run build
       - if: always()
-        run: docker compose down
+        run: docker compose --profile test down

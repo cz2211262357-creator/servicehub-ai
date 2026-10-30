@@ -1,6 +1,14 @@
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, ForeignKeyConstraint, Index, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    ForeignKeyConstraint,
+    Index,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from servicehub.db.base import Base, TenantEntity, tenant_constraints
@@ -21,6 +29,8 @@ class Order(TenantEntity, Base):
     tracking_number: Mapped[str | None] = mapped_column(String(80))
     carrier: Mapped[str | None] = mapped_column(String(80))
     delivery_summary: Mapped[str | None] = mapped_column(String(255))
+    # Only trusted merchant/server ingestion writes these facts; customer/tool inputs cannot.
+    after_sale_facts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class OrderItem(TenantEntity, Base):

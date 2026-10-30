@@ -5,8 +5,10 @@ import time
 from sqlalchemy import select
 
 from servicehub.ai.agent import SupportAgent
+from servicehub.ai.answer_rules import requires_policy_citation
 from servicehub.ai.models import AIRun
 from servicehub.ai.provider import HTTPModelProvider
+from servicehub.ai.tracing import cited_evidence
 from servicehub.auth.models import User
 from servicehub.auth.schemas import Principal
 from servicehub.conversations.events import append_event
@@ -52,24 +54,26 @@ class AIService:
                 run.state, run.finished_at = "cancelled", utcnow()
                 await self.jobs.finish(job_lease, {"discarded": True}, session=session)
                 return False
+            # Validate text references, not merely the existence of attached evidence.
+            evidence = cited_evidence(
+                result.text,
+                result.citations,
+                required=requires_policy_citation(result.text, result.citations, result.tool_calls),
+            )
             citations = []
-            if result.citations:
+            if evidence:
                 await session.execute(
                     select(KnowledgeDocument)
                     .where(
                         KnowledgeDocument.tenant_id == job_lease.tenant_id,
-                        KnowledgeDocument.id.in_(
-                            sorted({row.document_id for row in result.citations})
-                        ),
+                        KnowledgeDocument.id.in_(sorted({row.document_id for row in evidence})),
                     )
                     .order_by(KnowledgeDocument.id)
                     .with_for_update(read=True)
                 )
                 principal = Principal(user.id, user.tenant_id, "customer")
-                citations = await self.retriever.revalidate(principal, result.citations)
-                if {row.chunk_id for row in citations} != {
-                    row.chunk_id for row in result.citations
-                }:
+                citations = await self.retriever.revalidate(principal, evidence)
+                if {row.chunk_id for row in citations} != {row.chunk_id for row in evidence}:
                     raise RetryableJobError("evidence_changed")
             message = Message(
                 tenant_id=job_lease.tenant_id,
@@ -128,7 +132,7 @@ class AIService:
                 run.state, run.finished_at = "cancelled", utcnow()
                 await self.jobs.finish(lease, {"discarded": True}, session=session)
                 return {"discarded": True}
-            principal = Principal(user.id, user.tenant_id, user.role)
+            principal = Principal(user.id, user.tenant_id, user.role, user.session_version)
             run.state, run.started_at, run.model = "running", utcnow(), self.settings.model_name
             run.provider = "online"
         slot = None

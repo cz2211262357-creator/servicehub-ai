@@ -1,5 +1,6 @@
 import type { components } from "./generated/schema";
 export type Schemas = components["schemas"];
+export type { PythonSchemas } from "./python-types";
 let csrf = "";
 export function setCsrf(value: string) {
   csrf = value;

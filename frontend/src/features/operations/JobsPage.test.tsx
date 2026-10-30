@@ -29,6 +29,7 @@ beforeEach(() => {
               {
                 id: 1,
                 kind: "ai_reply",
+                payload: { ai_run_id: 12 },
                 state: "failed",
                 attempts: 1,
                 execution_version: 3,
@@ -85,4 +86,9 @@ test("a stale retry conflict refreshes the list before another attempt", async (
   expect(
     screen.queryByRole("button", { name: "重试" }),
   ).not.toBeInTheDocument();
+});
+
+test("AI job exposes its run number for administrator trace lookup", async () => {
+  show();
+  expect(await screen.findByText("AI 运行 #12")).toBeInTheDocument();
 });

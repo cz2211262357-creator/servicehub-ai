@@ -38,6 +38,9 @@ test("preparing a draft does not submit a ticket until explicit confirmation", a
     );
   });
   render(<AfterSaleForm orderId={1} onDone={() => {}} />);
+  fireEvent.change(screen.getByLabelText("申请原因"), {
+    target: { value: "QUALITY" },
+  });
   fireEvent.change(screen.getByLabelText("申请说明"), {
     target: { value: "商品损坏" },
   });

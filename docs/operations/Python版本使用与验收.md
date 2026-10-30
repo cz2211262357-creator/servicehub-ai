@@ -1,6 +1,56 @@
 # ServiceHub Python 版本使用与验收
 
-本文保留 2026-10-21 的 FastAPI 版本说明与当时实测；Java 当前交付见[主 README](../../README.md)。以下命令均在旧版源码根目录执行，旧数据与 Java 数据独立。
+本页前半部分说明 `python-quality` 升级分支；后面的 2026-10-21 数据是原版归档，不能当作新版本质量成绩。
+
+## 当前升级入口
+
+- 新检索：Redis BM25STD + HNSW + RRF；旧 MySQL ngram 路径作为显式基线和经回填后的回退通路。
+- 原有订单资料保持原值。品类、签收时间等事实未知时，准备与确认均拒绝自动办理，要求澄清或人工核实。
+- `uv run python -m scripts.seed_quality` 导入独立合成商家和 30 份政策，实际 Worker 完成索引；重复运行不改旧账号密码、既有订单事实或重复创建相同版本。它只允许 development。
+- 网站 8080、API 8000；管理端“运营概览”查看 AI 质量与运行编号 Trace。终态失败率是系统运行结果，不等价于业务或语义成功率。
+- 费用估计需要在 .env 中配置实际适用的输入/输出单价（每百万 Token）、币种和价格版本；未配置、usage 缺失或价格不一致时保留未知。缓存折扣、供应商阶梯价和账单不由本项目推断。
+
+## 原库升级与分离工作树
+
+先备份原业务库与上传文件，停止旧 Worker 后执行 Alembic 到 `0003_ai_trace`；0002 为可信售后事实与草稿绑定，0003 为逐次 Trace。不要给旧订单自动伪造新事实。新索引独立存储，旧索引不删除：
+
+```bash
+uv run alembic -c backend/alembic.ini upgrade head
+uv run python scripts/reindex_hybrid.py
+```
+
+如源码工作树 W 与原运行目录 R 不同，数据必须继续指向 R，构建指向 W，不能无意创建 W/.data 作为新的运行数据库。Windows 可在加载原 R 的环境脚本后运行 W 的：
+
+```powershell
+. R/scripts/env.ps1
+& W/scripts/deploy-python.ps1 -StateRoot R -Build -Migrate
+```
+
+这里 R/W 是路径说明，须替换成实际绝对路径；项目本机 R 为用户指定的 qz-project，W 为其中的隔离升级目录。脚本不会备份或修改全局 Docker 存储，选择 `-Migrate` 前由调用者完成原库备份。
+
+## 旧检索回退的必要步骤
+
+v2 新文档不自动双写旧向量索引。**不能只改配置就把旧通路称作完整混合检索回退。** 在暂停知识版本切换的维护窗口，先运行：
+
+```bash
+uv run python scripts/reindex_legacy.py --env-file .env
+```
+
+仅当输出 `rollback_ready=true` 且 `verified` 覆盖本次所有有效块时，再设置 `SERVICEHUB_RETRIEVAL_BACKEND=mysql_legacy` 并重建/重启 API 与 Worker。工具从当前 SQL 授权版本读取块，验证租户/版本/内容/模型/维度后复用真实 v2 向量，否则调用真实 Embedding；逐块检查存储和 KNN 可检索性，最后复核有效集合未改变。不完整、错误 schema 或并发版本变更会非零退出，不修改块 ID、SQL 激活记录或自动切换后端。回到新通路设置 redis_hybrid 并运行 reindex_hybrid。
+
+## 对话与引用边界
+
+普通追问保留已经成功准备的草稿；明确撤回或换订单在消息事务内使旧草稿失效。取消费用、条件等疑问不会当作撤回。保守语法未覆盖的说法仍需澄清，不声称理解所有自然语言。草稿有效期 15 分钟；确认时复核当前客户、权限版本、订单归属、资格、源任务成功和执行版本。口头同意不创建正式工单。
+
+政策结论需要有效的数字 chunk_id 引用；普通补充订单号的澄清和拒绝越权不因偶然召回政策而被强制插入无关引用。工具成功后补充的政策结论仍需引用。此规则不是语义蕴含校验，离线引用 qrels 和质量裁判另行检查正确性。
+
+## 验证和限制
+
+本轮测量与复现命令见 [升级验证报告](../verification/python-quality-upgrade.md) 和 [评估数据](../../evals/servicehub/README.md)。真实 API 评估会产生供应商用量；默认 pytest 不调用付费模型。服务错误的实际公开提示可以满足“如实解释故障”场景，但底层运行仍然是 failed，不能伪称模型成功。
+
+以下为原版归档。
+
+---
 
 [![CI](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/cz2211262357-creator/servicehub-ai/actions/workflows/ci.yml)
 

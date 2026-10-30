@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, Query, Request
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Gauge, generate_latest
@@ -6,7 +7,9 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from starlette.responses import Response
 
+from servicehub.ai.models import AIRun, TraceSpan
 from servicehub.core.dependencies import Admin, Staff
+from servicehub.core.errors import BusinessError
 from servicehub.jobs.models import Job
 from servicehub.jobs.schemas import JobDTO
 from servicehub.jobs.service import JobService
@@ -14,6 +17,61 @@ from servicehub.operations.metrics import MetricsService, MetricsSummary
 from servicehub.operations.models import AuditLog
 
 router = APIRouter(prefix="/api/v1/admin", tags=["operations"])
+
+
+class TraceSpanDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    execution_version: int
+    kind: str
+    name: str
+    started_at: datetime
+    finished_at: datetime | None
+    latency_ms: int | None
+    outcome: str
+    error_code: str | None
+    arguments_summary: dict
+    model: str | None
+    usage: dict[str, int | None] | None
+    estimated_cost: Decimal | None
+    cost_currency: str | None
+    price_version: str | None
+
+
+class RunTraceDTO(BaseModel):
+    run_id: int
+    conversation_id: int
+    state: str
+    error_code: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    spans: list[TraceSpanDTO]
+
+
+@router.get("/ai-runs/{run_id}/trace", response_model=RunTraceDTO)
+async def get_run_trace(run_id: int, request: Request, principal: Admin):
+    async with request.app.state.sessions() as session:
+        run = await session.scalar(
+            select(AIRun).where(AIRun.id == run_id, AIRun.tenant_id == principal.tenant_id)
+        )
+        if not run:
+            raise BusinessError("not_found", "任务不存在", 404)
+        spans = list(
+            await session.scalars(
+                select(TraceSpan)
+                .where(TraceSpan.tenant_id == principal.tenant_id, TraceSpan.ai_run_id == run_id)
+                .order_by(TraceSpan.id)
+            )
+        )
+        return RunTraceDTO(
+            run_id=run.id,
+            conversation_id=run.conversation_id,
+            state=run.state,
+            error_code=run.error_code,
+            started_at=run.started_at,
+            finished_at=run.finished_at,
+            spans=[TraceSpanDTO.model_validate(row) for row in spans],
+        )
 
 
 class JobPage(BaseModel):

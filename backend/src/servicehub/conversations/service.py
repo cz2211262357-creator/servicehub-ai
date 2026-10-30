@@ -1,5 +1,7 @@
 from sqlalchemy import select, update
 
+from servicehub.after_sales.intent import draft_message_intent
+from servicehub.after_sales.models import TicketDraft
 from servicehub.ai.models import AIRun
 from servicehub.conversations.events import append_event, as_live_event
 from servicehub.conversations.models import Conversation, ConversationEvent, Message
@@ -9,6 +11,7 @@ from servicehub.core.errors import BusinessError
 from servicehub.db.base import utcnow
 from servicehub.jobs.models import Job
 from servicehub.jobs.persistence import enqueue_job
+from servicehub.jobs.service import database_now
 from servicehub.operations.audit import AuditService
 
 
@@ -124,6 +127,21 @@ class ConversationService:
                 return MessageDTO.model_validate(existing)
             if row.status == "CLOSED":
                 raise BusinessError("conversation_closed", "会话已结束，请创建新会话", 409)
+            if principal.role == "customer" and draft_message_intent(body) != "KEEP":
+                # The conversation lock serializes this withdrawal with Agent preparation
+                # and customer confirmation; a retry returned above cannot repeat it.
+                now = await database_now(session)
+                await session.execute(
+                    update(TicketDraft)
+                    .where(
+                        TicketDraft.tenant_id == principal.tenant_id,
+                        TicketDraft.customer_id == principal.user_id,
+                        TicketDraft.conversation_id == row.id,
+                        TicketDraft.consumed.is_(False),
+                        TicketDraft.expires_at > now,
+                    )
+                    .values(expires_at=now, version=TicketDraft.version + 1)
+                )
             row.version += 1
             row.generation_epoch += 1
             row.updated_at = utcnow()

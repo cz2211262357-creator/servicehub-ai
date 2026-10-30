@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -42,6 +43,12 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-v4"
     embedding_api_key: SecretStr = SecretStr("")
     embedding_dimensions: int = Field(default=1024, ge=1, le=8192)
+    retrieval_backend: Literal["mysql_legacy", "redis_hybrid"] = "redis_hybrid"
+    model_input_price_per_million: Decimal | None = Field(default=None, ge=0)
+    model_output_price_per_million: Decimal | None = Field(default=None, ge=0)
+    model_price_version: str = Field(default="", max_length=80)
+    model_price_currency: str = Field(default="CNY", min_length=1, max_length=12)
+    model_temperature: float = Field(default=0, ge=0, le=2)
     model_timeout_seconds: float = Field(default=45, gt=0, le=120)
     agent_timeout_seconds: float = Field(default=120, gt=0, le=300)
     max_tool_steps: int = Field(default=4, ge=1, le=8)

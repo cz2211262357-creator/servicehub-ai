@@ -1,6 +1,7 @@
 from sqlalchemy import select
 
 from servicehub.ai.models import AIRun
+from servicehub.conversations.public_errors import public_error_message
 from servicehub.conversations.schemas import AIReplyDTO, ConversationDTO
 from servicehub.jobs.models import Job
 
@@ -27,6 +28,9 @@ async def conversation_snapshot(session, conversation):
             run_id=run.id,
             state=state,
             error_code=job.error_code,
+            error_message=public_error_message(job.error_code)
+            if state in ("failed", "retrying")
+            else None,
             will_retry=job.state == "retrying",
             generation_epoch=run.generation_epoch,
             attempts=job.attempts,

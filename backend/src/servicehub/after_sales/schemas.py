@@ -3,14 +3,18 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from servicehub.after_sales.eligibility import ReasonCode
+
 TicketKind = Literal["RETURN", "EXCHANGE", "REPAIR"]
 TicketStatus = Literal["SUBMITTED", "IN_REVIEW", "APPROVED", "REJECTED", "RESOLVED", "CANCELLED"]
 
 
 class DraftInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     order_id: int = Field(gt=0)
     kind: TicketKind
     reason: str = Field(min_length=2, max_length=1000)
+    reason_code: ReasonCode = "OTHER"
 
 
 class ConfirmInput(BaseModel):
@@ -31,6 +35,7 @@ class TicketDraftDTO(BaseModel):
     customer_id: int
     kind: TicketKind
     reason: str
+    reason_code: ReasonCode
     version: int
     expires_at: datetime
     consumed: bool

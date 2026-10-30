@@ -1,7 +1,9 @@
 name: Java platform verification
 on:
   push:
+    branches-ignore: [python-quality, 'python-quality/**']
   pull_request:
+    branches-ignore: [python-quality, 'python-quality/**']
 jobs:
   java:
     runs-on: ubuntu-latest

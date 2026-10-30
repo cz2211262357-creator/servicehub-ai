@@ -7,6 +7,7 @@ from servicehub.ai.embedding import HTTPEmbeddingProvider
 from servicehub.core.errors import BusinessError
 from servicehub.jobs.handlers import PermanentJobError, RetryableJobError
 from servicehub.jobs.service import JobService
+from servicehub.knowledge.hybrid_index import HybridIndex
 from servicehub.knowledge.models import (
     DocumentVersion,
     KnowledgeActiveVersion,
@@ -19,8 +20,9 @@ from servicehub.knowledge.storage import PrivateStorage
 
 
 class KnowledgeIndexer:
-    def __init__(self, sessions, redis, settings):
+    def __init__(self, sessions, redis, settings, embedding=None):
         self.sessions, self.redis, self.settings = sessions, redis, settings
+        self.embedding = embedding
         self.jobs = JobService(sessions)
 
     async def mark_failed(self, lease, version_id, code):
@@ -48,6 +50,9 @@ class KnowledgeIndexer:
             await self.mark_failed(lease, version.id, code)
             raise PermanentJobError(code) from None
 
+        hybrid = getattr(self.settings, "retrieval_backend", "mysql_legacy") == "redis_hybrid"
+        parsed_chunks = list(split_pages(pages))
+
         # Stage inactive chunks in a short transaction. No provider network calls hold MySQL locks.
         async with self.sessions() as session, session.begin():
             document = await session.scalar(
@@ -63,41 +68,75 @@ class KnowledgeIndexer:
             if document.deleted:
                 await self.jobs.finish(lease, {"deleted": True}, session=session)
                 return {"deleted": True}
-            await session.execute(
-                delete(KnowledgeChunk).where(
-                    KnowledgeChunk.tenant_id == lease.tenant_id,
-                    KnowledgeChunk.version_id == version.id,
+            chunks = []
+            if hybrid:
+                chunks = list(
+                    await session.scalars(
+                        select(KnowledgeChunk)
+                        .where(
+                            KnowledgeChunk.tenant_id == lease.tenant_id,
+                            KnowledgeChunk.version_id == version.id,
+                        )
+                        .order_by(KnowledgeChunk.ordinal)
+                    )
                 )
-            )
-            chunks = [
-                KnowledgeChunk(
-                    tenant_id=lease.tenant_id,
-                    document_id=document.id,
-                    version_id=version.id,
-                    ordinal=i,
-                    page=page,
-                    text=text,
+                # Versions are immutable. Reuse IDs after a partial index failure so
+                # late/expired attempts cannot leave same-version orphan candidates.
+                if chunks and [(chunk.ordinal, chunk.page, chunk.text) for chunk in chunks] != [
+                    (i, page, text) for i, (page, text) in enumerate(parsed_chunks)
+                ]:
+                    raise PermanentJobError("staged_content_changed")
+            else:
+                await session.execute(
+                    delete(KnowledgeChunk).where(
+                        KnowledgeChunk.tenant_id == lease.tenant_id,
+                        KnowledgeChunk.version_id == version.id,
+                    )
                 )
-                for i, (page, text) in enumerate(split_pages(pages))
-            ]
-            session.add_all(chunks)
+            if not chunks:
+                chunks = [
+                    KnowledgeChunk(
+                        tenant_id=lease.tenant_id,
+                        document_id=document.id,
+                        version_id=version.id,
+                        ordinal=i,
+                        page=page,
+                        text=text,
+                    )
+                    for i, (page, text) in enumerate(parsed_chunks)
+                ]
+                session.add_all(chunks)
             current = await session.get(DocumentVersion, version.id)
             current.status, current.error_code = "processing", None
             await session.flush()
             staged = [(chunk.id, chunk.text) for chunk in chunks]
 
-        if self.settings.model_mode == "online":
+        online = self.settings.model_mode == "online"
+        if hybrid or online:
             try:
-                provider = HTTPEmbeddingProvider(self.settings)
-                index = VectorIndex(
+                index = (HybridIndex if hybrid else VectorIndex)(
                     self.redis, self.settings.embedding_model, self.settings.embedding_dimensions
                 )
+                # Confirm schema before attempting to activate even an empty document.
+                await index.ensure()
+                provider = self.embedding or HTTPEmbeddingProvider(self.settings)
                 for start in range(0, len(staged), 10):
                     batch = staged[start : start + 10]
-                    vectors = await provider.embed([text for _, text in batch])
-                    for (chunk_id, _), vector in zip(batch, vectors, strict=True):
-                        await index.write(chunk_id, lease.tenant_id, vector, version_id=version.id)
-            except (BusinessError, RedisError) as exc:
+                    vectors = (
+                        await provider.embed([text for _, text in batch])
+                        if online
+                        else [None] * len(batch)
+                    )
+                    for (chunk_id, text), vector in zip(batch, vectors, strict=True):
+                        if hybrid:
+                            await index.write(
+                                chunk_id, lease.tenant_id, text, vector, version_id=version.id
+                            )
+                        else:
+                            await index.write(
+                                chunk_id, lease.tenant_id, vector, version_id=version.id
+                            )
+            except (BusinessError, RedisError, ValueError, TimeoutError) as exc:
                 code = exc.code if isinstance(exc, BusinessError) else "index_storage_unavailable"
                 await self.mark_failed(lease, version.id, code)
                 raise RetryableJobError(code) from None

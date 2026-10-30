@@ -1,8 +1,10 @@
 import asyncio
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from servicehub.after_sales.models import AfterSaleTicket
+from servicehub.db.base import utcnow
 from servicehub.operations.models import AuditLog
 from servicehub.orders.models import Order
 from sqlalchemy import func, select
@@ -17,11 +19,21 @@ async def draft(env, client, reason="商品收到后无法开机"):
             customer_id=env.users["customer"].id,
             order_number=f"ORDER-{reason}",
             total_amount=Decimal("999.90"),
+            after_sale_facts={
+                "category": "electronics",
+                "signed_at": (utcnow() - timedelta(days=1)).isoformat(),
+                "return_condition": "intact",
+                "exclusion_confirmed": False,
+                "quality_issue": True,
+                "warranty_until": (utcnow() + timedelta(days=365)).isoformat(),
+                "requires_manual_review": False,
+            },
         )
         session.add(row)
         await session.flush()
     result = await client.post(
-        "/api/v1/after-sales/drafts", json={"order_id": row.id, "kind": "RETURN", "reason": reason}
+        "/api/v1/after-sales/drafts",
+        json={"order_id": row.id, "kind": "RETURN", "reason": reason, "reason_code": "QUALITY"},
     )
     assert result.status_code == 201, result.text
     return result.json()
